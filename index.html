@@ -1170,7 +1170,72 @@ boxShadow: {
         $('cm-pages').innerHTML = '';
 
 
-                <div onclick="openToolRoom('tiktok')" class="tool-card downloader glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
+                        setView('read'); $('cm-read').scrollTop = 0;
+        $('cm-prev').disabled = $('cm-next').disabled = true;
+        var my = ++st.t3;
+        msg('cm-read-msg', 'Memuat halaman…');
+        call({ a: 'pages', id: c.id }).then(function (d) {
+            if (my !== st.t3) return;
+            msg('cm-read-msg', d.pages.length ? '' : 'Chapter ini tidak punya halaman.');
+            d.pages.forEach(addPage);
+            var older = st.order === 'desc' ? i + 1 : i - 1, newer = st.order === 'desc' ? i - 1 : i + 1;
+            $('cm-prev').disabled = !st.ch[older];
+            $('cm-next').disabled = !st.ch[newer];
+        }).catch(function (e) {
+            if (my !== st.t3) return;
+            msg('cm-read-msg', e.message + ' (ketuk untuk coba lagi)', function () { openChapter(i); });
+        });
+    }
+
+    // ===== Tombol =====
+    window.openComicPage = function () {
+        var p = $('cm-page');
+        p.classList.add('cm-show'); p.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        syncUi();
+        if (!st.loaded) { st.loaded = true; loadList(true); }
+    };
+    window.closeComicPage = function () {
+        var p = $('cm-page');
+        p.classList.remove('cm-show'); p.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+    window.cmBack = function () {
+        if (st.view === 'read') { st.t3++; setView('detail'); }
+        else if (st.view === 'detail') setView('list');
+        else window.closeComicPage();
+    };
+    window.cmSearch = function (e) {
+        if (e) e.preventDefault();
+        st.q = $('cm-q').value.trim();
+        loadList(true);
+        return false;
+    };
+    window.cmMore = function () { loadList(false); };
+    window.cmMoreCh = function () { loadCh(false); };
+    window.cmLang = function (l) {
+        st.lang = l === 'en' ? 'en' : 'id'; save('cm_lang', st.lang); syncUi();
+        if (st.view === 'detail' && st.manga) loadCh(true); else loadList(true);
+    };
+    window.cmOrder = function () {
+        st.order = st.order === 'desc' ? 'asc' : 'desc'; syncUi();
+        if (st.manga) loadCh(true);
+    };
+    window.cmQuality = function () {
+        st.saver = !st.saver; save('cm_saver', st.saver ? '1' : '0'); syncUi();
+        Array.prototype.forEach.call($('cm-pages').querySelectorAll('img'), function (img) {
+            img.dataset.fb = ''; img.src = st.saver ? img.dataset.s : img.dataset.d;
+        });
+    };
+    window.cmStep = function (dir) {
+        var older = st.order === 'desc' ? st.idx + 1 : st.idx - 1, newer = st.order === 'desc' ? st.idx - 1 : st.idx + 1;
+        var to = dir < 0 ? older : newer;
+        if (st.ch[to]) openChapter(to);
+    };
+    syncUi();
+})();
+</script>
+<div onclick="openToolRoom('tiktok')" class="tool-card downloader glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
                     <div>
                         <div class="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center mb-3">
                             <i class="fa-brands fa-tiktok text-pink-400 text-lg"></i>
