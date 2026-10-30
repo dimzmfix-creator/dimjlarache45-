@@ -938,7 +938,7 @@ boxShadow: {
     .cm-views { position: relative; flex: 1; min-height: 0; }
     .cm-view { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 12px 30px;
         opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s ease; }
-    .cm-view.on { opacity: 1; visibility: visible; pointer-events: auto; }
+    #cm-page.cm-show .cm-view.on { opacity: 1; visibility: visible; pointer-events: auto; }
     .cm-search { display: flex; gap: 8px; margin-bottom: 12px; }
     .cm-search input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 14px; font-size: 14px; color: #fff; outline: 0;
         background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
