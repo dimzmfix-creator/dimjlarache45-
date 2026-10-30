@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="id" class="dark">
 <head>
+<meta http-equiv="X-Frame-Options" content="DENY">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dimj Laraché | Multi Tools & Downloader</title>
@@ -22,9 +23,9 @@
                             cyan: '#06b6d4',
                             pink: '#ec4899',
                             green: '#10b981'
-                        }
-                    },
-                    boxShadow: {
+    }
+},
+boxShadow: {
                         'neon-purple': '0 0 25px rgba(139, 92, 246, 0.4)',
                         'neon-cyan': '0 0 20px rgba(6, 182, 212, 0.3)',
                         'card-glow': '0 8px 32px 0 rgba(19, 10, 36, 0.85)'
@@ -39,9 +40,8 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bcryptjs/2.4.3/bcrypt.min.js"></script>
     <style>
         body {
             font-family: 'Plus Jakarta Sans', sans-serif;
@@ -91,20 +91,640 @@
             background: #8b5cf6;
         }
 
-        .brat-font {
-            font-family: 'Arial Black', 'Impact', sans-serif;
-            letter-spacing: -2px;
-        }
-
         /* Animasi popup tool room */
         @keyframes fadeInScale {
             from { opacity: 0; transform: scale(0.92); }
             to { opacity: 1; transform: scale(1); }
         }
         .animate-fade-in { animation: fadeInScale 0.2s ease-out; }
+/* Animasi popup iOS */
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-40px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-slide-down { animation: slideDown 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
     </style>
+<style>
+    /* Bottom nav kaca melayang */
+    .bn {
+        position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+        width: calc(100% - 28px); max-width: 440px; z-index: 90;
+        display: grid; grid-template-columns: repeat(4, 1fr);
+        padding: 6px; border-radius: 30px;
+        background: linear-gradient(145deg, rgba(255,255,255,.16), rgba(255,255,255,.05));
+        backdrop-filter: blur(28px) saturate(180%);
+        -webkit-backdrop-filter: blur(28px) saturate(180%);
+        border: 1px solid rgba(255,255,255,.22);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 14px 40px rgba(0,0,0,.5);
+    }
+    .bn-ind {
+        position: absolute; top: 6px; bottom: 6px; left: 6px;
+        width: calc((100% - 12px) / 4); border-radius: 24px;
+        background: rgba(139,92,246,.38);
+        border: 1px solid rgba(196,181,253,.35);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+        transition: transform .35s cubic-bezier(.34,1.4,.64,1);
+    }
+    .bn-btn {
+        position: relative; z-index: 1; display: flex; flex-direction: column;
+        align-items: center; gap: 3px; padding: 9px 0;
+        background: none; border: 0; cursor: pointer;
+        color: rgba(255,255,255,.55); font-size: 10px; font-weight: 700;
+        transition: color .2s, transform .15s;
+    }
+    .bn-btn i { font-size: 17px; }
+    .bn-btn.active { color: #fff; }
+    .bn-btn:active { transform: scale(.92); }
+    .bn-toast {
+        position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: calc(100px + env(safe-area-inset-bottom, 0px)); z-index: 91;
+        padding: 10px 18px; border-radius: 999px;
+        background: rgba(19,10,36,.85);
+        backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+        border: 1px solid rgba(255,255,255,.2);
+        color: #fff; font-size: 12px; font-weight: 600;
+        opacity: 0; transition: opacity .25s;
+    }
+    .bn-toast.show { opacity: 1; }
+    #tools-grid { scroll-margin-top: 90px; }
+</style>
+<style>
+    /* ===== LIQUID GLASS: variabel (nanti diatur dari Pengaturan) ===== */
+    :root {
+        --glass-blur: 24px;
+        --glass-alpha: 0.10;
+    }
+
+    /* Kaca dasar untuk semua kartu */
+    .glass-card {
+        background: linear-gradient(145deg,
+            rgba(196,181,253,calc(var(--glass-alpha) * 1.6)),
+            rgba(139,92,246,calc(var(--glass-alpha) * 0.5)));
+        backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        border: 1px solid rgba(255,255,255,.18);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.3), 0 10px 30px rgba(0,0,0,.35);
+    }
+    .glass-card:hover {
+        border-color: rgba(196,181,253,.5);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 0 25px rgba(139,92,246,.3);
+    }
+
+    /* Header kaca */
+    .glass-nav {
+        background: rgba(10,5,18,.55);
+        backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+
+    /* Latar cahaya ungu (diam, tidak kepotong karena posisi fixed) */
+    body::before, body::after {
+        content: ""; position: fixed; border-radius: 50%;
+        filter: blur(50px); z-index: -1; pointer-events: none;
+    }
+    body::before {
+        top: -120px; left: -100px; width: 340px; height: 340px;
+        background: radial-gradient(circle, rgba(139,92,246,.55), transparent 70%);
+    }
+    body::after {
+        bottom: -140px; right: -120px; width: 360px; height: 360px;
+        background: radial-gradient(circle, rgba(236,72,153,.35), transparent 70%);
+    }
+</style>
+<style>
+    /* ===== LANGKAH 2: profil, tab, kartu tools ===== */
+    #user-role-badge, #access-badge { white-space: nowrap; }
+    .glass-card p.font-mono > span { white-space: nowrap; }
+
+    /* Tab kategori */
+    .nav-tab.bg-brand-800\/80 {
+        background: rgba(255,255,255,.08) !important;
+        border: 1px solid rgba(255,255,255,.18) !important;
+        color: rgba(255,255,255,.8) !important;
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+    }
+    .nav-tab.bg-brand-accent {
+        background: rgba(139,92,246,.55) !important;
+        border: 1px solid rgba(196,181,253,.45) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 0 20px rgba(139,92,246,.4);
+    }
+
+    /* Kartu tools */
+    .tool-card p { color: rgba(229,231,235,.82) !important; }
+    .tool-card .bg-brand-800 {
+        background: rgba(255,255,255,.1) !important;
+        border-color: rgba(255,255,255,.22) !important;
+    }
+</style>
+<style>
+    /* ===== SIDEBAR KACA ===== */
+    #sidebar {
+        background: linear-gradient(165deg, rgba(139,92,246,.28), rgba(19,10,36,.78)) !important;
+        backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        border-left: 1px solid rgba(255,255,255,.2) !important;
+        box-shadow: inset 1px 0 0 rgba(255,255,255,.25), -20px 0 60px rgba(0,0,0,.5);
+    }
+    #sidebar .text-gray-400 { color: rgba(255,255,255,.78) !important; }
+    #sidebar .text-gray-500 { color: rgba(255,255,255,.55) !important; }
+    #sidebar button:not(.text-red-400):hover {
+        color: #fff !important;
+        background: rgba(255,255,255,.12) !important;
+    }
+
+    /* ===== POPUP GRAPHICS ===== */
+    .gfx-opt {
+        padding: 10px 0; border-radius: 14px; font-size: 11px; font-weight: 700;
+        color: rgba(255,255,255,.78); background: rgba(255,255,255,.08);
+        border: 1px solid rgba(255,255,255,.18); transition: all .2s;
+    }
+    .gfx-opt.gfx-on {
+        background: rgba(139,92,246,.5); border-color: rgba(196,181,253,.55);
+        color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.35);
+    }
+    #gfx-modal input[type=range] { width: 100%; accent-color: #8b5cf6; }
+
+    /* ===== MODE SMOOTH (ringan untuk HP lag) ===== */
+    html.perf-smooth .glass-card,
+    html.perf-smooth .glass-nav,
+    html.perf-smooth .bn,
+    html.perf-smooth .bn-toast,
+    html.perf-smooth #sidebar,
+    html.perf-smooth #update-modal,
+    html.perf-smooth .backdrop-blur-sm {
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+    }
+    html.perf-smooth .glass-card { background: rgba(25,14,48,.92) !important; box-shadow: none !important; }
+    html.perf-smooth .glass-nav { background: rgba(10,5,18,.96) !important; }
+    html.perf-smooth .bn { background: rgba(30,18,56,.96) !important; }
+    html.perf-smooth #sidebar { background: #0f0720 !important; }
+    html.perf-smooth body::before,
+    html.perf-smooth body::after { display: none; }
+    html.perf-smooth .animate-pulse { animation: none !important; }
+</style>
+<style>
+    /* ===== AI CHAT ===== */
+    #ai-page {
+        position: fixed; inset: 0; z-index: 120;
+        display: flex; flex-direction: column;
+        height: 100vh; height: 100dvh;
+        background:
+            radial-gradient(420px 320px at 10% -5%, rgba(139,92,246,.35), transparent 70%),
+            radial-gradient(380px 300px at 100% 105%, rgba(236,72,153,.22), transparent 70%),
+            #0a0512;
+        opacity: 0; visibility: hidden; pointer-events: none;
+        transform: translateY(22px);
+        transition: opacity .28s ease, transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s linear .32s;
+    }
+    #ai-page.ai-show {
+        opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+        transition: opacity .28s ease, transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s;
+    }
+    .ai-head, .ai-bar {
+        background: rgba(10,5,18,.55);
+        backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+        -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(170%);
+    }
+    .ai-head {
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+        border-bottom: 1px solid rgba(255,255,255,.12);
+    }
+    .ai-icon-btn {
+        width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center;
+        color: rgba(255,255,255,.85);
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16);
+        transition: transform .15s, background .2s;
+    }
+    .ai-icon-btn:active { transform: scale(.92); }
+    .ai-seg {
+        display: flex; padding: 3px; border-radius: 12px; flex-shrink: 0;
+        background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14);
+    }
+    .ai-seg button {
+        padding: 5px 9px; border-radius: 9px; font-size: 10px; font-weight: 700;
+        color: rgba(255,255,255,.65); transition: background .2s, color .2s;
+    }
+    .ai-seg button.on {
+        background: rgba(139,92,246,.55); color: #fff;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+    }
+    #ai-msgs {
+        flex: 1; overflow-y: auto; overscroll-behavior: contain;
+        padding: 16px 14px; display: flex; flex-direction: column; gap: 10px;
+    }
+    .ai-empty { margin: auto; text-align: center; color: rgba(255,255,255,.6); font-size: 13px; padding: 0 24px; }
+    .ai-msg {
+        max-width: 86%; padding: 10px 14px; font-size: 13.5px; line-height: 1.5;
+        white-space: pre-wrap; word-break: break-word;
+        animation: aiPop .38s cubic-bezier(.2,.8,.2,1) both;
+    }
+    .ai-msg.old { animation: none; }
+    .ai-msg.me {
+        align-self: flex-end; color: #fff;
+        border-radius: 20px 20px 6px 20px;
+        background: linear-gradient(145deg, rgba(139,92,246,.6), rgba(139,92,246,.35));
+        border: 1px solid rgba(196,181,253,.4);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.3);
+    }
+    .ai-msg.bot {
+        align-self: flex-start; color: rgba(255,255,255,.95);
+        border-radius: 20px 20px 20px 6px;
+        background: linear-gradient(145deg,
+            rgba(255,255,255,calc(var(--glass-alpha) * 1.4)),
+            rgba(255,255,255,calc(var(--glass-alpha) * .5)));
+        backdrop-filter: blur(var(--glass-blur));
+        -webkit-backdrop-filter: blur(var(--glass-blur));
+        border: 1px solid rgba(255,255,255,.16);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+    }
+    .ai-msg.err { color: #fca5a5; border-color: rgba(248,113,113,.4); }
+    .ai-msg.ai-typing { display: flex; gap: 5px; align-items: center; padding: 13px 16px; }
+    .ai-dot {
+        width: 7px; height: 7px; border-radius: 50%; background: #c4b5fd;
+        animation: aiBounce 1.1s ease-in-out infinite;
+    }
+    .ai-dot:nth-child(2) { animation-delay: .15s; }
+    .ai-dot:nth-child(3) { animation-delay: .3s; }
+    @keyframes aiPop { from { opacity: 0; transform: translateY(10px) scale(.97); } to { opacity: 1; transform: none; } }
+    @keyframes aiFade { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes aiBounce { 0%,60%,100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-5px); opacity: 1; } }
+    @keyframes aiBlink { 0%,100% { opacity: .35; } 50% { opacity: 1; } }
+    .ai-bar {
+        padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px));
+        border-top: 1px solid rgba(255,255,255,.12);
+    }
+    .ai-field {
+        display: flex; align-items: flex-end; gap: 8px; padding: 6px; border-radius: 24px;
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.2);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+    }
+    .ai-field textarea {
+        flex: 1; background: transparent; border: 0; outline: 0; resize: none;
+        color: #fff; font-size: 15px; line-height: 1.4; padding: 8px 10px;
+        max-height: 110px; font-family: inherit;
+    }
+    .ai-field textarea::placeholder { color: rgba(255,255,255,.45); }
+    #ai-send {
+        width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; color: #fff;
+        display: flex; align-items: center; justify-content: center;
+        background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+        box-shadow: 0 6px 18px rgba(139,92,246,.5);
+        transition: transform .15s, opacity .2s;
+    }
+    #ai-send:active { transform: scale(.9); }
+    #ai-send:disabled { opacity: .45; }
+
+    /* Mode Smooth: ringan, hanya memudar */
+    html.perf-smooth #ai-page { transform: none; background: #0a0512;
+        transition: opacity .12s linear, visibility 0s linear .12s; }
+    html.perf-smooth #ai-page.ai-show { transition: opacity .12s linear, visibility 0s; }
+    html.perf-smooth .ai-head, html.perf-smooth .ai-bar,
+    html.perf-smooth .ai-msg.bot { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+    html.perf-smooth .ai-head, html.perf-smooth .ai-bar { background: rgba(10,5,18,.96); }
+    html.perf-smooth .ai-msg.bot { background: rgba(40,26,70,.92); }
+    html.perf-smooth .ai-msg { animation: aiFade .12s linear both; }
+    html.perf-smooth .ai-msg.old { animation: none; }
+    html.perf-smooth .ai-dot { animation: aiBlink 1s ease-in-out infinite; }
+    @media (prefers-reduced-motion: reduce) {
+        #ai-page { transform: none; }
+        .ai-msg { animation: aiFade .12s linear both; }
+        .ai-msg.old { animation: none; }
+        .ai-dot { animation: aiBlink 1s ease-in-out infinite; }
+    }
+</style>
+<style>
+    /* ===== SPLASH LOADING ===== */
+    .sp-ui { display: grid; width: min(78vw, 280px); margin-top: 18px; }
+    .sp-ui > * { grid-area: 1 / 1; transition: opacity .4s ease, transform .4s ease; }
+    .sp-prog { display: none; }
+    .sp-track {
+        height: 8px; border-radius: 999px; overflow: hidden;
+        background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.14);
+        box-shadow: inset 0 1px 2px rgba(0,0,0,.4);
+    }
+    .sp-fill {
+        width: 100%; height: 100%; border-radius: 999px;
+        transform-origin: 0 50%; transform: scaleX(0);
+        background: linear-gradient(90deg, #8b5cf6, #ec4899, #22d3ee);
+        box-shadow: 0 0 12px rgba(139,92,246,.7);
+    }
+    .sp-row {
+        display: flex; justify-content: space-between; margin-top: 8px;
+        font: 700 10px/1 ui-monospace, monospace; letter-spacing: .12em;
+        color: rgba(255,255,255,.65);
+    }
+    .sp-enter {
+        opacity: 0; transform: translateY(8px) scale(.96); pointer-events: none;
+        padding: 13px 0; border-radius: 999px; font-size: 14px; font-weight: 800;
+        letter-spacing: .04em; color: #fff; cursor: pointer;
+        background: linear-gradient(135deg, rgba(139,92,246,.8), rgba(236,72,153,.6));
+        border: 1px solid rgba(255,255,255,.3);
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 10px 28px rgba(139,92,246,.5);
+        backdrop-filter: blur(var(--glass-blur, 16px));
+        -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+    }
+    .sp-enter i { margin-left: 8px; }
+    .sp-ui.sp-done .sp-prog { opacity: 0; transform: translateY(-6px); pointer-events: none; }
+    .sp-ui.sp-done .sp-enter { opacity: 1; transform: none; pointer-events: auto; }
+    .sp-ui.sp-done .sp-enter:active { transform: scale(.96); }
+    html.perf-smooth .sp-enter { backdrop-filter: none; -webkit-backdrop-filter: none; }
+    @media (prefers-reduced-motion: reduce) {
+        .sp-ui > * { transition: opacity .2s linear; transform: none !important; }
+    }
+</style>
+<script>
+(function () {
+    var MIN_MS = 3000;   // minimal tampil sebelum tombol Masuk muncul
+    var MAX_MS = 15000;  // batas tunggu (kalau jaringan lambat, tombol tetap muncul)
+    var active = false;
+
+    function $(id) { return document.getElementById(id); }
+
+    // Sentuhan pertama (misalnya tombol Login) membuka izin suara untuk video splash
+    function unlockAudio() {
+        var v = $('splash-video');
+        if (!v) return;
+        try {
+            if (active) {
+                v.muted = false; v.volume = 0.5;
+                var q = v.play();
+                if (q && q.catch) q.catch(function () { v.muted = true; });
+                return;
+            }
+            v.muted = false; v.volume = 0;
+            var p = v.play();
+            if (p && p.then) {
+                p.then(function () { if (!active) v.pause(); })
+                 .catch(function () { v.muted = true; });
+            }
+        } catch (e) {}
+    }
+    document.addEventListener('pointerdown', unlockAudio, { once: true, passive: true });
+
+    function mount(splash) {
+        if ($('sp-ui')) return;
+        var html =
+            '<div id="sp-ui" class="sp-ui">' +
+              '<div class="sp-prog">' +
+                '<div class="sp-track"><div id="sp-fill" class="sp-fill"></div></div>' +
+                '<div class="sp-row"><span id="sp-label">MEMUAT</span><span id="sp-pct">0%</span></div>' +
+              '</div>' +
+              '<button id="sp-enter" type="button" class="sp-enter" aria-hidden="true" tabindex="-1">Masuk <i class="fa-solid fa-arrow-right"></i></button>' +
+            '</div>';
+        var dot = splash.querySelector('.animate-bounce');
+        var host = dot ? dot.parentElement.parentElement : document.createElement('div');
+        host.className = '';
+        host.style.cssText = 'display:flex;justify-content:center;width:100%;padding:8px 0 calc(32px + env(safe-area-inset-bottom,0px));background:#0a0512';
+        host.innerHTML = html;
+        if (!dot) splash.appendChild(host);
+        var v = $('splash-video');
+        if (v) v.preload = 'auto';
+    }
+
+    function fadeOutAudio(v) {
+        if (!v) return;
+        var vol = v.volume, i = 0, steps = 8;
+        var t = setInterval(function () {
+            i++;
+            try { v.volume = Math.max(0, vol * (1 - i / steps)); } catch (e) {}
+            if (i >= steps) clearInterval(t);
+        }, 55);
+    }
+
+    window.startSplash = function (onEnter) {
+        var splash = $('splash-screen');
+        if (!splash) { onEnter(); return; }
+        mount(splash);
+
+        var v = $('splash-video');
+        var ui = $('sp-ui'), fill = $('sp-fill'), pct = $('sp-pct'), label = $('sp-label'), btn = $('sp-enter');
+        var t0 = Date.now(), shown = 0, finished = false, entered = false, failed = false;
+        active = true;
+
+        ui.classList.remove('sp-done');
+        fill.style.transform = 'scaleX(0)';
+        pct.textContent = '0%';
+        label.textContent = 'MEMUAT';
+        btn.setAttribute('aria-hidden', 'true');
+        btn.tabIndex = -1;
+        btn.disabled = false;
+
+        splash.style.opacity = '';
+        splash.classList.remove('opacity-0', 'pointer-events-none');
+
+        if (v) {
+            var src = v.querySelector('source');
+            if (src) src.addEventListener('error', function () { failed = true; }, { once: true });
+            v.addEventListener('error', function () { failed = true; }, { once: true });
+            try {
+                v.currentTime = 0;
+                v.muted = false; v.volume = 0.5;
+                var p = v.play();
+                if (p && p.catch) {
+                    p.catch(function () {
+                        v.muted = true;
+                        var q = v.play();
+                        if (q && q.catch) q.catch(function () {});
+                    });
+                }
+            } catch (e) {}
+        }
+
+        function videoFrac() {
+            if (!v || failed || v.error || v.networkState === 3) return 1;
+            if (v.readyState >= 4) return 1;
+            var d = v.duration;
+            if (d && isFinite(d) && v.buffered && v.buffered.length) {
+                var f = v.buffered.end(v.buffered.length - 1) / d;
+                return f >= 0.98 ? 1 : f;
+            }
+            return 0;
+        }
+
+        function finish() {
+            finished = true;
+            clearInterval(timer);
+            label.textContent = 'SIAP';
+            ui.classList.add('sp-done');
+            btn.setAttribute('aria-hidden', 'false');
+            btn.tabIndex = 0;
+        }
+
+        var timer = setInterval(function () {
+            var el = Date.now() - t0;
+            var pageOk = document.readyState === 'complete';
+            var target = (pageOk ? 10 : 0) + videoFrac() * 90;
+            if (el > MAX_MS) target = 100;
+            var goal = Math.min(target, el / MIN_MS * 100);
+            shown += (goal - shown) * 0.25;
+            if (goal >= 100 && shown > 99.4) shown = 100;
+            fill.style.transform = 'scaleX(' + (shown / 100).toFixed(3) + ')';
+            pct.textContent = Math.round(shown) + '%';
+            if (shown >= 100 && !finished) finish();
+        }, 50);
+
+        btn.onclick = function () {
+            if (entered || !finished) return;
+            entered = true;
+            active = false;
+            btn.disabled = true;
+            try { onEnter(); } catch (e) { console.error(e); }
+            splash.style.opacity = '0';
+            fadeOutAudio(v);
+            setTimeout(function () {
+                splash.classList.add('opacity-0', 'pointer-events-none');
+                splash.style.opacity = '';
+                if (v) { v.pause(); v.muted = true; v.currentTime = 0; }
+            }, 520);
+        };
+    };
+})();
+</script>
+<style>
+    /* ===== TOMBOL MASUK: liquid glass biasa ===== */
+    .sp-ui .sp-enter {
+        color: #fff; text-shadow: 0 1px 6px rgba(0,0,0,.3);
+        background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08));
+        border: 1px solid rgba(255,255,255,.28);
+        box-shadow:
+            inset 0 1px 0 rgba(255,255,255,.5),
+            inset 0 -1px 0 rgba(255,255,255,.12),
+            0 8px 24px rgba(0,0,0,.35);
+        backdrop-filter: blur(20px) saturate(170%);
+        -webkit-backdrop-filter: blur(20px) saturate(170%);
+    }
+    .sp-ui .sp-enter::after { display: none; }
+    .sp-ui.sp-done .sp-enter { animation: spRise .6s cubic-bezier(.2,1.1,.3,1) both; }
+    .sp-ui.sp-done .sp-enter:active { transform: none; scale: .96; }
+    @keyframes spRise {
+        from { opacity: 0; transform: translateY(16px) scale(.94); }
+        to   { opacity: 1; transform: none; }
+    }
+    @keyframes spFade { from { opacity: 0; } to { opacity: 1; } }
+    html.perf-smooth .sp-ui .sp-enter {
+        backdrop-filter: none; -webkit-backdrop-filter: none;
+        background: rgba(255,255,255,.2); box-shadow: inset 0 1px 0 rgba(255,255,255,.5);
+    }
+    html.perf-smooth .sp-ui.sp-done .sp-enter { animation: spFade .2s linear both; }
+    @media (prefers-reduced-motion: reduce) {
+        .sp-ui.sp-done .sp-enter { animation: spFade .2s linear both; }
+    }
+</style>
 </head>
-<body class="bg-brand-900 text-gray-100 min-h-screen flex flex-col bg-mesh pb-12">
+
+
+<body class="bg-brand-900 text-gray-100 min-h-screen flex flex-col bg-mesh pb-28">
+
+<!-- Splash Screen -->
+<div id="splash-screen" class="fixed inset-0 z-[999] flex flex-col bg-brand-900 opacity-0 pointer-events-none transition-opacity duration-500 overflow-hidden">
+    
+    <!-- Video di atas -->
+    <div class="relative w-full flex-1 overflow-hidden">
+
+         <video id="splash-video" autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover">
+    <source src="splash-video.mp4" type="video/mp4">
+</video>
+
+        <div class="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-brand-900"></div>
+    </div>
+    
+    <!-- Loading di bawah -->
+    <div class="flex flex-col items-center py-8 bg-brand-900">
+        <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-brand-accent via-pink-500 to-brand-cyan p-1 shadow-neon-purple animate-pulse">
+            <div class="w-full h-full bg-brand-900 rounded-[14px] flex items-center justify-center">
+                <i class="fa-solid fa-bolt text-brand-accent text-2xl"></i>
+            </div>
+        </div>
+        <h1 class="text-lg font-extrabold text-white mt-4 tracking-tight">Dimj Laraché</h1>
+        <p class="text-[10px] text-gray-400 font-mono tracking-widest mt-0.5">MULTI TOOLS</p>
+        <div class="mt-4 flex items-center gap-2">
+            <div class="w-2 h-2 rounded-full bg-brand-accent animate-bounce" style="animation-delay: 0s"></div>
+            <div class="w-2 h-2 rounded-full bg-pink-400 animate-bounce" style="animation-delay: 0.15s"></div>
+            <div class="w-2 h-2 rounded-full bg-brand-cyan animate-bounce" style="animation-delay: 0.3s"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar Overlay -->
+<div id="sidebar-overlay" class="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] hidden" onclick="toggleSidebar()"></div>
+
+<!-- Sidebar -->
+<div id="sidebar" class="fixed top-0 right-0 h-full w-72 bg-brand-900 border-l border-brand-700/60 z-[200] transform translate-x-full transition-transform duration-300 overflow-y-auto">
+    <div class="p-5 border-b border-brand-700/60 flex items-center justify-between">
+        <h2 class="text-sm font-black text-white tracking-widest">MENU</h2>
+        <button onclick="toggleSidebar()" class="w-9 h-9 rounded-lg bg-brand-800 border border-brand-700 flex items-center justify-center text-gray-400 hover:text-white transition">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+
+    <div class="p-4 space-y-6">
+        <div>
+            <p class="text-[9px] font-mono text-gray-500 tracking-widest px-3 mb-2">OVERVIEW</p>
+           <button onclick="switchView('dashboard'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl bg-brand-accent/20 text-brand-glow border border-brand-accent/30 hover:bg-brand-accent/30 transition text-left">
+                <i class="fa-solid fa-house text-sm w-5"></i>
+                <span class="text-xs font-bold">Dashboard</span>
+            </button>
+         
+            <button onclick="openProfile(); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left mt-1">
+                <i class="fa-solid fa-user text-sm w-5"></i>
+                <span class="text-xs font-bold">Profile</span>
+            </button> 
+        </div>
+
+        <div>
+            <p class="text-[9px] font-mono text-gray-500 tracking-widest px-3 mb-2">TOOLS</p>
+            <button onclick="filterCategory('downloader'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-download text-sm w-5"></i>
+                <span class="text-xs font-bold">Downloader</span>
+            </button>
+            <button onclick="filterCategory('maker'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-wand-magic-sparkles text-sm w-5"></i>
+                <span class="text-xs font-bold">Maker</span>
+            </button>
+            <button onclick="filterCategory('tools'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-toolbox text-sm w-5"></i>
+                <span class="text-xs font-bold">Utility</span>
+            </button>
+        </div>
+
+        <div>
+            <p class="text-[9px] font-mono text-gray-500 tracking-widest px-3 mb-2">MONEY</p>
+            <button onclick="alert('Shop coming soon!'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-bag-shopping text-sm w-5"></i>
+                <span class="text-xs font-bold">Shop</span>
+            </button>
+            <button onclick="alert('Wallet coming soon!'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-wallet text-sm w-5"></i>
+                <span class="text-xs font-bold">Wallet</span>
+            </button>
+            <button onclick="alert('Donate coming soon!'); toggleSidebar();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+                <i class="fa-solid fa-gift text-sm w-5"></i>
+                <span class="text-xs font-bold">Donate</span>
+            </button>
+        </div>
+
+        <div>
+    <p class="text-[9px] font-mono text-gray-500 tracking-widest px-3 mb-2">PENGATURAN</p>
+    <button onclick="toggleSidebar(); openGraphics();" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-brand-800/60 transition text-left">
+        <i class="fa-solid fa-sliders text-sm w-5"></i>
+        <span class="text-xs font-bold">Graphics</span>
+    </button>
+</div>
+
+<div class="pt-4 border-t border-brand-700/60">
+            <button onclick="doLogout()" class="w-full flex items-center gap-3 px-3 py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition text-left">
+                <i class="fa-solid fa-right-from-bracket text-sm w-5"></i>
+                <span class="text-xs font-bold">Logout</span>
+            </button>
+        </div>
+    </div>
+</div>
+
 <!-- LOGIN PAGE -->
 <div id="auth-page" class="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-brand-900">
     <div class="glass-card w-full max-w-sm rounded-2xl p-6 relative shadow-neon-purple">
@@ -147,6 +767,7 @@
 
     <header class="glass-nav sticky top-0 z-50">
         <div class="max-w-4xl mx-auto px-3 h-14 flex items-center justify-between gap-2">
+
             <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('dashboard')">
                 <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-accent via-pink-500 to-brand-cyan p-0.5 shadow-neon-purple">
                     <div class="w-full h-full bg-brand-900 rounded-[10px] flex items-center justify-center">
@@ -155,7 +776,7 @@
                 </div>
                 <div>
                     <h1 class="text-sm font-extrabold tracking-tight text-white truncate flex items-center gap-1.5">
-                        Dimj Laraché <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-brand-accent/20 text-brand-glow border border-brand-accent/40 font-mono">v3.5</span>
+                        Dimj Laraché <span class="text-[8px] px-1.5 py-0.5 rounded-full bg-brand-accent/20 text-brand-glow border border-brand-accent/40 font-mono">v4.0</span>
                     </h1>
                     <p class="text-[9px] text-gray-400 tracking-wider font-mono truncate">MULTI TOOLS</p>
                 </div>
@@ -165,9 +786,11 @@
                <div class="flex items-center justify-center w-8 h-8 rounded-full bg-brand-800/90 border border-brand-700 flex-shrink-0">
     <span class="w-2.5 h-2.5 rounded-full bg-brand-green animate-pulse"></span>
 </div>
-                <span class="px-2 py-1 bg-gradient-to-r from-red-600 via-purple-600 to-brand-accent rounded-full text-[9px] font-black text-white shadow-neon-purple flex items-center gap-1 uppercase tracking-wider">
-                    <i class="fa-solid fa-shield-halved text-[9px]"></i> ADMIN
-                </span>
+<button onclick="toggleSidebar()" class="w-8 h-8 flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-white transition flex-shrink-0 ml-1">
+    <span class="w-5 h-0.5 bg-current rounded"></span>
+    <span class="w-5 h-0.5 bg-current rounded"></span>
+    <span class="w-5 h-0.5 bg-current rounded"></span>
+</button>
             </div>
         </div>
     </header>
@@ -178,12 +801,12 @@
             <div class="absolute -top-12 -right-12 w-48 h-48 bg-brand-accent/20 rounded-full blur-3xl pointer-events-none"></div>
             <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div class="flex items-center space-x-4 relative p-3 rounded-xl overflow-hidden">
-<video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-30">
+  <video autoplay muted loop playsinline class="absolute inset-0 w-full h-full object-cover opacity-30">
     <source src="anime-banner.mp4" type="video/mp4">
 </video>
 <div class="absolute inset-0 bg-gradient-to-r from-brand-900/80 to-transparent"></div>
                     <div class="relative z-10">
-                        <div class="w-16 h-16 rounded-2xl bg-gradient-to-tr from-brand-accent via-pink-500 to-brand-cyan p-0.5 shadow-neon-purple">
+                       <div class="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-accent via-pink-500 to-brand-cyan p-0.5 shadow-neon-purple"> 
                             <div class="w-full h-full bg-brand-800 rounded-[14px] flex items-center justify-center overflow-hidden">
                                 <i class="fa-solid fa-user-shield text-brand-glow text-2xl"></i>
                             </div>
@@ -191,14 +814,17 @@
                         <span class="absolute -bottom-1 -right-1 w-4 h-4 bg-brand-green border-2 border-brand-900 rounded-full"></span>
                     </div>
                     <div>
-                        <div class="flex items-center gap-2 relative z-10">
-                            <h2 class="text-lg font-black text-white tracking-wide">dimj</h2>
-                            <span id="user-role-badge" class="px-2.5 py-0.5 rounded-md bg-red-500/20 text-red-400 text-[10px] font-mono font-bold border border-red-500/40 uppercase tracking-wider flex items-center gap-1">
-    <i class="fa-solid fa-crown text-[9px]"></i> Admin
+                        <div class="flex flex-wrap items-center gap-2 relative z-10">
+                            <h2 id="profile-username" class="text-lg font-black text-white tracking-wide">
+    Guest
+</h2>
+                            
+<span id="user-role-badge" class="px-2.5 py-0.5 rounded-md bg-blue-500/20 text-blue-400 text-[10px] font-mono font-bold border border-blue-500/40 uppercase tracking-wider flex items-center gap-1 flex-shrink-0">
+    <i class="fa-solid fa-user text-[9px]"></i> User
 </span>
-                            <span class="px-2 py-0.5 rounded bg-brand-accent/20 text-brand-glow text-[10px] font-mono border border-brand-accent/30">VVIP ACCESS</span>
+                            <span id="access-badge" class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-mono border border-blue-500/30 flex-shrink-0">FREE ACCESS</span>
                         </div>
-                        <p class="text-xs text-gray-400 font-mono mt-1 flex items-center gap-3">
+                        <p class="text-xs text-gray-300 font-mono mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
                             <span><i class="fa-solid fa-earth-americas text-brand-accent"></i> Indonesia</span>
                             <span><i class="fa-solid fa-laptop-code text-brand-cyan"></i> Web Admin</span>
                             <span><i class="fa-solid fa-server text-brand-green"></i> 4/4 APIs Ready</span>
@@ -209,12 +835,12 @@
                 <div class="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-end border-t sm:border-t-0 border-brand-700/60 pt-3 sm:pt-0">
                     <div class="text-left sm:text-right font-mono">
                         <div class="text-[10px] text-gray-400">SERVER ENGINE</div>
-                        <div class="text-xs font-bold text-brand-green">Cobalt & TikWM API</div>
+                        <div class="text-xs font-bold text-emerald-300">Cobalt & TikWM API</div>
                     </div>
                     <div class="h-6 w-px bg-brand-700 hidden sm:block"></div>
                     <div class="text-left sm:text-right font-mono">
                         <div class="text-[10px] text-gray-400">LATENCY</div>
-                        <div class="text-xs font-bold text-brand-cyan" id="ping-text">24 ms</div>
+                        <div class="text-xs font-bold text-cyan-300" id="ping-text">24 ms</div>
                     </div>
                 </div>
             </div>
@@ -241,12 +867,309 @@
                 <h3 class="text-sm font-bold text-white flex items-center gap-2">
                     <i class="fa-solid fa-grip text-brand-accent"></i> Tools Room List
                 </h3>
-                <span class="text-xs text-gray-400 font-mono" id="tools-count-badge">8 Active Tools</span>
+                <span class="text-xs text-gray-400 font-mono" id="tools-count-badge">9 Active Tools</span>
             </div>
 
             <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3.5" id="tools-grid">
 
-                <!-- TikTok Downloader Card -->
+                <!-- AI Chat Card -->
+                <div id="ai-card" onclick="openAiPage()" class="tool-card tools glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-robot text-violet-300 text-lg"></i>
+                        </div>
+                        <h4 class="font-bold text-sm text-white mb-1">AI Chat</h4>
+                        <p class="text-[11px] text-gray-400 line-clamp-2 leading-tight">Tanya apa saja, dijawab AI</p>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <span class="px-2 py-0.5 rounded bg-violet-500/20 text-violet-200 text-[9px] font-mono border border-violet-500/30">ADMIN</span>
+                        <div class="w-6 h-6 rounded-full bg-brand-800 border border-brand-700 flex items-center justify-center text-xs text-violet-300">
+                            <i id="ai-card-arrow" class="fa-solid fa-arrow-right"></i>
+                            <i id="ai-card-lock" class="fa-solid fa-lock" style="display:none"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Baca Komik Card -->
+                <div id="cm-card" onclick="openComicPage()" class="tool-card tools glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-violet-500/10 border border-violet-500/30 flex items-center justify-center mb-3">
+                            <i class="fa-solid fa-book-open text-violet-300 text-lg"></i>
+                        </div>
+                        <h4 class="font-bold text-sm text-white mb-1">Baca Komik</h4>
+                        <p class="text-[11px] text-gray-400 line-clamp-2 leading-tight">Manga, manhwa, dan komik gratis</p>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between">
+                        <span class="px-2 py-0.5 rounded bg-violet-500/20 text-violet-200 text-[9px] font-mono border border-violet-500/30">BARU</span>
+                        <div class="w-6 h-6 rounded-full bg-brand-800 border border-brand-700 flex items-center justify-center text-xs text-violet-300">
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </div>
+                    </div>
+                </div>
+
+ <!-- TikTok Downloader Card -->
+
+<style>
+    #cm-page {
+        position: fixed; inset: 0; z-index: 120; display: flex; flex-direction: column;
+        height: 100vh; height: 100dvh;
+        background:
+            radial-gradient(420px 320px at 10% -5%, rgba(139,92,246,.30), transparent 70%),
+            radial-gradient(380px 300px at 100% 105%, rgba(236,72,153,.18), transparent 70%), #0a0512;
+        opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(22px);
+        transition: opacity .28s ease, transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s linear .32s;
+    }
+    #cm-page.cm-show { opacity: 1; visibility: visible; pointer-events: auto; transform: none;
+        transition: opacity .28s ease, transform .32s cubic-bezier(.2,.8,.2,1), visibility 0s; }
+    .cm-head {
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px; flex-shrink: 0;
+        background: rgba(10,5,18,.6); border-bottom: 1px solid rgba(255,255,255,.12);
+        backdrop-filter: blur(var(--glass-blur,16px)) saturate(170%); -webkit-backdrop-filter: blur(var(--glass-blur,16px)) saturate(170%);
+    }
+    .cm-btn { width: 38px; height: 38px; border-radius: 12px; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+        color: rgba(255,255,255,.88); background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.16); }
+    .cm-btn:active { transform: scale(.92); }
+    .cm-title { flex: 1; min-width: 0; font-size: 14px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cm-seg { display: flex; padding: 3px; border-radius: 12px; flex-shrink: 0; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
+    .cm-seg button { padding: 5px 10px; border-radius: 9px; font-size: 11px; font-weight: 800; color: rgba(255,255,255,.65); }
+    .cm-seg button.on { background: rgba(255,255,255,.2); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.35); }
+    .cm-pill { padding: 8px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; color: #fff; flex-shrink: 0;
+        background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); }
+    .cm-views { position: relative; flex: 1; min-height: 0; }
+    .cm-view { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; padding: 14px 12px 30px;
+        opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .2s ease; }
+    .cm-view.on { opacity: 1; visibility: visible; pointer-events: auto; }
+    .cm-search { display: flex; gap: 8px; margin-bottom: 12px; }
+    .cm-search input { flex: 1; min-width: 0; padding: 11px 14px; border-radius: 14px; font-size: 14px; color: #fff; outline: 0;
+        background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.18); }
+    .cm-search input::placeholder { color: rgba(255,255,255,.45); }
+    .cm-search button { width: 44px; border-radius: 14px; color: #fff; background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.22); }
+    .cm-sub { font-size: 11px; font-family: ui-monospace, monospace; letter-spacing: .1em; color: rgba(255,255,255,.55); margin: 4px 2px 10px; }
+    .cm-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    @media (min-width: 640px) { .cm-grid { grid-template-columns: repeat(4, 1fr); } }
+    .cm-card { text-align: left; border-radius: 16px; overflow: hidden; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.14); }
+    .cm-card:active { transform: scale(.97); }
+    .cm-cover { display: block; width: 100%; aspect-ratio: 2 / 3; object-fit: cover; background: #1a1030; }
+    .cm-card h4 { padding: 8px 10px 10px; font-size: 12px; line-height: 1.3; color: #fff; font-weight: 700;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .cm-msg { display: block; width: 100%; padding: 18px 8px; font-size: 12px; color: rgba(255,255,255,.65); text-align: center; }
+    .cm-msg:empty { display: none; }
+    .cm-more { display: block; width: 100%; margin-top: 14px; padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 800; color: #fff;
+        background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.2); }
+    .cm-more[hidden] { display: none; }
+    .cm-credit { margin-top: 18px; font-size: 10px; text-align: center; color: rgba(255,255,255,.45); line-height: 1.5; }
+    .cm-credit a { color: rgba(196,181,253,.9); text-decoration: underline; }
+    .cm-dhead { display: flex; gap: 12px; margin-bottom: 12px; }
+    .cm-dhead img { width: 96px; flex-shrink: 0; aspect-ratio: 2 / 3; object-fit: cover; border-radius: 12px; background: #1a1030; border: 1px solid rgba(255,255,255,.14); }
+    .cm-dhead h3 { font-size: 15px; font-weight: 800; color: #fff; line-height: 1.3; }
+    .cm-dmeta { margin-top: 4px; font-size: 10px; font-family: ui-monospace, monospace; letter-spacing: .08em; color: rgba(255,255,255,.55); text-transform: uppercase; }
+    .cm-desc { margin-top: 8px; font-size: 12px; line-height: 1.5; color: rgba(255,255,255,.75); display: -webkit-box; -webkit-line-clamp: 5; -webkit-box-orient: vertical; overflow: hidden; }
+    .cm-desc.open { -webkit-line-clamp: unset; }
+    .cm-bar { display: flex; align-items: center; justify-content: space-between; margin: 12px 2px 8px; }
+    .cm-bar b { font-size: 12px; color: #fff; }
+    .cm-ch { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; padding: 11px 13px; margin-bottom: 8px;
+        border-radius: 14px; background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12); }
+    .cm-ch:active { background: rgba(255,255,255,.14); }
+    .cm-ch span:first-child { font-size: 13px; font-weight: 800; color: #fff; }
+    .cm-ch small { display: block; font-size: 10px; font-weight: 500; color: rgba(255,255,255,.55); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 62vw; }
+    .cm-ch span:last-child { font-size: 10px; font-family: ui-monospace, monospace; color: rgba(255,255,255,.5); flex-shrink: 0; }
+    .cm-reader { padding: 0 0 30px; background: #07040d; }
+    .cm-pg { display: block; width: 100%; max-width: 820px; margin: 0 auto; min-height: 320px; background: #120a20; }
+    .cm-pg.ok { min-height: 0; }
+    .cm-retry { display: block; margin: 8px auto; padding: 10px 16px; border-radius: 12px; font-size: 12px; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.2); }
+    .cm-nav { display: flex; gap: 10px; max-width: 820px; margin: 18px auto 0; padding: 0 12px; }
+    .cm-nav button { flex: 1; padding: 12px; border-radius: 14px; font-size: 12px; font-weight: 800; color: #fff; background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.22); }
+    .cm-nav button:disabled { opacity: .35; }
+    html.perf-smooth #cm-page { transform: none; background: #0a0512; transition: opacity .12s linear, visibility 0s linear .12s; }
+    html.perf-smooth #cm-page.cm-show { transition: opacity .12s linear, visibility 0s; }
+    html.perf-smooth .cm-head { backdrop-filter: none; -webkit-backdrop-filter: none; background: rgba(10,5,18,.96); }
+    @media (prefers-reduced-motion: reduce) { #cm-page { transform: none; } .cm-view { transition: none; } }
+</style>
+
+
+<div id="cm-page" aria-hidden="true">
+    <div class="cm-head">
+        <button class="cm-btn" onclick="cmBack()" aria-label="Kembali"><i class="fa-solid fa-arrow-left"></i></button>
+        <div id="cm-title" class="cm-title">Baca Komik</div>
+        <div id="cm-langs" class="cm-seg" role="group" aria-label="Bahasa">
+            <button id="cm-l-id" onclick="cmLang('id')">ID</button>
+            <button id="cm-l-en" onclick="cmLang('en')">EN</button>
+        </div>
+        <button id="cm-qbtn" class="cm-pill" onclick="cmQuality()" style="display:none">Hemat data</button>
+    </div>
+    <div class="cm-views">
+        <div id="cm-list" class="cm-view on">
+            <form class="cm-search" onsubmit="return cmSearch(event)">
+                <input id="cm-q" type="search" maxlength="100" placeholder="Cari judul komik..." autocomplete="off">
+                <button type="submit" aria-label="Cari"><i class="fa-solid fa-magnifying-glass"></i></button>
+            </form>
+            <p id="cm-sub" class="cm-sub">POPULER</p>
+            <div id="cm-grid" class="cm-grid"></div>
+            <button id="cm-list-msg" class="cm-msg" type="button"></button>
+            <button id="cm-more" class="cm-more" hidden onclick="cmMore()">Muat lebih banyak</button>
+            <p class="cm-credit">Sumber: <a href="https://mangadex.org" target="_blank" rel="noopener noreferrer">MangaDex</a>. Dukung kreatornya dengan membeli versi resmi jika tersedia.</p>
+        </div>
+        <div id="cm-detail" class="cm-view">
+            <div class="cm-dhead">
+                <img id="cm-d-cover" alt="">
+                <div style="min-width:0">
+                    <h3 id="cm-d-title"></h3>
+                    <p id="cm-d-meta" class="cm-dmeta"></p>
+                    <p id="cm-d-desc" class="cm-desc" onclick="this.classList.toggle('open')"></p>
+                </div>
+            </div>
+            <div class="cm-bar"><b id="cm-ch-count">Chapter</b><button class="cm-pill" onclick="cmOrder()" id="cm-order">Terbaru dulu</button></div>
+            <div id="cm-chs"></div>
+            <button id="cm-ch-msg" class="cm-msg" type="button"></button>
+            <button id="cm-ch-more" class="cm-more" hidden onclick="cmMoreCh()">Muat lebih banyak</button>
+        </div>
+        <div id="cm-read" class="cm-view cm-reader">
+            <button id="cm-read-msg" class="cm-msg" type="button"></button>
+            <div id="cm-pages"></div>
+            <div class="cm-nav">
+                <button id="cm-prev" onclick="cmStep(-1)"><i class="fa-solid fa-chevron-left"></i> Sebelumnya</button>
+                <button id="cm-next" onclick="cmStep(1)">Berikutnya <i class="fa-solid fa-chevron-right"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var API = '/api/mangadex';
+    var st = { lang: 'id', saver: true, view: 'list', q: '', off: 0, total: 0, loaded: false,
+               manga: null, ch: [], seen: {}, chOff: 0, chTotal: 0, order: 'desc', idx: -1, t1: 0, t2: 0, t3: 0 };
+    try {
+        st.lang = localStorage.getItem('cm_lang') === 'en' ? 'en' : 'id';
+        st.saver = localStorage.getItem('cm_saver') !== '0';
+    } catch (e) {}
+
+    function $(id) { return document.getElementById(id); }
+    function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function safeImg(u) { return typeof u === 'string' && u.indexOf(API + '?a=img&u=') === 0 ? u : ''; }
+    function save(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+    function call(params) {
+        return fetch(API + '?' + new URLSearchParams(params).toString()).then(function (r) {
+            return r.json().catch(function () { return {}; }).then(function (d) {
+                if (!r.ok) throw new Error(d.error || 'Gagal memuat');
+                return d;
+            });
+        });
+    }
+    function msg(id, text, retry) {
+        var m = $(id);
+        m.textContent = text || '';
+        m.onclick = retry || null;
+        m.style.cursor = retry ? 'pointer' : '';
+    }
+    function chLabel(c) { return c.ch ? 'Ch. ' + c.ch : 'Oneshot'; }
+
+    function setView(v) {
+        st.view = v;
+        ['list', 'detail', 'read'].forEach(function (n) { $('cm-' + n).classList.toggle('on', n === v); });
+        $('cm-langs').style.display = v === 'read' ? 'none' : '';
+        $('cm-qbtn').style.display = v === 'read' ? '' : 'none';
+        $('cm-title').textContent = v === 'list' ? 'Baca Komik' : v === 'detail' ? (st.manga ? st.manga.title : '') : chLabel(st.ch[st.idx] || {});
+    }
+    function syncUi() {
+        $('cm-l-id').classList.toggle('on', st.lang === 'id');
+        $('cm-l-en').classList.toggle('on', st.lang === 'en');
+        $('cm-qbtn').textContent = st.saver ? 'Hemat data' : 'Kualitas asli';
+        $('cm-order').textContent = st.order === 'desc' ? 'Terbaru dulu' : 'Terlama dulu';
+    }
+
+    // ===== Daftar =====
+    function addCard(m) {
+        var b = el('button', 'cm-card'); b.type = 'button';
+        var img = el('img', 'cm-cover'); img.loading = 'lazy'; img.alt = ''; img.src = safeImg(m.cover);
+        b.appendChild(img); b.appendChild(el('h4', '', m.title || 'Tanpa judul'));
+        b.onclick = function () { openManga(m); };
+        $('cm-grid').appendChild(b);
+    }
+    function loadList(reset) {
+        var my = ++st.t1;
+        if (reset) { st.off = 0; $('cm-grid').innerHTML = ''; }
+        $('cm-more').hidden = true;
+        msg('cm-list-msg', 'Memuat…');
+        $('cm-sub').textContent = st.q ? 'HASIL: ' + st.q.toUpperCase() : 'POPULER';
+        call({ a: 'search', q: st.q, lang: st.lang, offset: st.off }).then(function (d) {
+            if (my !== st.t1) return;
+            d.items.forEach(addCard);
+            st.off += d.items.length; st.total = d.total;
+            msg('cm-list-msg', st.off === 0 ? 'Tidak ada hasil. Coba kata lain atau ganti bahasa.' : '');
+            $('cm-more').hidden = !(d.items.length && st.off < Math.min(st.total, 920));
+        }).catch(function (e) {
+            if (my !== st.t1) return;
+            msg('cm-list-msg', e.message + ' (ketuk untuk coba lagi)', function () { loadList(st.off === 0); });
+        });
+    }
+
+    // ===== Detail & chapter =====
+    function openManga(m) {
+        st.manga = m;
+        $('cm-d-cover').src = safeImg(m.cover);
+        $('cm-d-title').textContent = m.title || '';
+        $('cm-d-meta').textContent = [m.status, m.year].filter(Boolean).join(' · ');
+        $('cm-d-desc').textContent = m.desc || 'Tidak ada deskripsi.';
+        $('cm-d-desc').classList.remove('open');
+        setView('detail');
+        $('cm-detail').scrollTop = 0;
+        loadCh(true);
+    }
+    function addChRow(c, i) {
+        var b = el('button', 'cm-ch'); b.type = 'button';
+        var left = el('span');
+        left.appendChild(document.createTextNode(chLabel(c) + (c.vol ? ' · Vol. ' + c.vol : '')));
+        var sub = [c.title, c.group].filter(Boolean).join(' — ');
+        if (sub) left.appendChild(el('small', '', sub));
+        b.appendChild(left); b.appendChild(el('span', '', c.pages + ' hlm'));
+        b.onclick = function () { openChapter(i); };
+        $('cm-chs').appendChild(b);
+    }
+    function loadCh(reset) {
+        var my = ++st.t2;
+        if (reset) { st.chOff = 0; st.ch = []; st.seen = {}; $('cm-chs').innerHTML = ''; $('cm-ch-count').textContent = 'Chapter'; }
+        $('cm-ch-more').hidden = true;
+        msg('cm-ch-msg', 'Memuat chapter…');
+        call({ a: 'chapters', id: st.manga.id, lang: st.lang, offset: st.chOff, o: st.order }).then(function (d) {
+            if (my !== st.t2) return;
+            d.items.forEach(function (c) {
+                var key = c.ch || ('id' + c.id);
+                if (st.seen[key]) return;
+                st.seen[key] = 1; st.ch.push(c); addChRow(c, st.ch.length - 1);
+            });
+            st.chOff += d.items.length; st.chTotal = d.total;
+            $('cm-ch-count').textContent = st.ch.length + ' chapter' + (st.chOff < st.chTotal ? '+' : '');
+            msg('cm-ch-msg', st.ch.length === 0 ? 'Belum ada chapter dalam bahasa ini. Coba ganti bahasa di kanan atas.' : '');
+            $('cm-ch-more').hidden = !(d.items.length && st.chOff < st.chTotal);
+        }).catch(function (e) {
+            if (my !== st.t2) return;
+            msg('cm-ch-msg', e.message + ' (ketuk untuk coba lagi)', function () { loadCh(st.chOff === 0); });
+        });
+    }
+
+    // ===== Pembaca =====
+    function otherSrc(img) { return img.dataset.fb ? '' : (img.src.indexOf(img.dataset.d) !== -1 ? img.dataset.s : img.dataset.d); }
+    function addPage(p) {
+        var img = el('img', 'cm-pg'); img.loading = 'lazy'; img.decoding = 'async'; img.alt = '';
+        img.dataset.d = safeImg(p.d); img.dataset.s = safeImg(p.s);
+        img.onload = function () { img.classList.add('ok'); };
+        img.onerror = function () {
+            var alt = img.dataset.fb ? '' : (st.saver ? img.dataset.d : img.dataset.s);
+            if (alt && alt !== img.getAttribute('src')) { img.dataset.fb = '1'; img.src = alt; return; }
+            img.style.display = 'none';
+            var r = el('button', 'cm-retry', 'Gambar gagal dimuat. Ketuk untuk coba lagi.'); r.type = 'button';
+            r.onclick = function () { r.remove(); img.dataset.fb = ''; img.style.display = ''; img.src = (st.saver ? img.dataset.s : img.dataset.d); };
+            img.parentNode.insertBefore(r, img.nextSibling);
+        };
+        img.src = st.saver ? img.dataset.s : img.dataset.d;
+        $('cm-pages').appendChild(img);
+    }
+    function openChapter(i) {
+        var c = st.ch[i]; if (!c) return;
+        st.idx = i;
+        $('cm-pages').innerHTML = '';
+
+
                 <div onclick="openToolRoom('tiktok')" class="tool-card downloader glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
                     <div>
                         <div class="w-10 h-10 rounded-xl bg-pink-500/10 border border-pink-500/30 flex items-center justify-center mb-3">
@@ -348,7 +1271,23 @@
                     </div>
                 </div>
 
-                <!-- BRAT Generator Card -->
+               <!-- Fake Lobby FF Card -->
+<div onclick="window.open('https://dimjfakelobyff.netlify.app', '_blank')" class="tool-card maker glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
+    <div>
+        <div class="w-10 h-10 rounded-xl bg-orange-500/10 border border-orange-500/30 flex items-center justify-center mb-3">
+            <i class="fa-solid fa-gamepad text-orange-400 text-lg"></i>
+        </div>
+        <h4 class="font-bold text-sm text-white mb-1">Fake Lobby FF</h4>
+        <p class="text-[11px] text-gray-400 line-clamp-2 leading-tight">Buat gambar lobby Free Fire pakai nama kamu</p>
+    </div>
+    <div class="mt-4 flex items-center justify-between">
+        <span class="px-2 py-0.5 rounded bg-orange-500/20 text-orange-300 text-[9px] font-mono border border-orange-500/30">MAKER</span>
+        <div class="w-6 h-6 rounded-full bg-brand-800 border border-brand-700 flex items-center justify-center text-xs text-orange-400">
+            <i class="fa-solid fa-arrow-right"></i>
+        </div>
+    </div>
+</div>
+ <!-- BRAT Generator Card -->
                 <div onclick="openToolRoom('brat')" class="tool-card maker glass-card p-4 rounded-2xl flex flex-col justify-between cursor-pointer transition-all duration-200 hover:-translate-y-1">
                     <div>
                         <div class="w-10 h-10 rounded-xl bg-lime-500/10 border border-lime-500/30 flex items-center justify-center mb-3">
@@ -369,16 +1308,82 @@
 
     </main>
 
+<section id="profile-page" class="hidden flex-grow max-w-4xl w-full mx-auto px-4 pt-6 space-y-4">
+    <button onclick="closeProfilePage()" class="glass-card px-4 py-2 rounded-xl text-xs font-bold text-white flex items-center gap-2">
+        <i class="fa-solid fa-arrow-left"></i> Kembali
+    </button>
+
+    <div class="glass-card rounded-3xl p-6 flex flex-col items-center text-center">
+        <div class="w-24 h-24 rounded-3xl bg-gradient-to-tr from-brand-accent via-pink-500 to-brand-cyan p-0.5 shadow-neon-purple">
+            <div class="w-full h-full bg-brand-800 rounded-[22px] flex items-center justify-center">
+                <i class="fa-solid fa-user text-brand-glow text-4xl"></i>
+            </div>
+        </div>
+        <h2 id="pf-name" class="text-xl font-black text-white mt-4 break-all">Guest</h2>
+        <div class="flex flex-wrap items-center justify-center gap-2 mt-2">
+            <span id="pf-role"></span>
+            <span id="pf-access"></span>
+        </div>
+    </div>
+
+    <div class="glass-card rounded-2xl p-3 space-y-2">
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+            <span class="text-xs text-gray-300 font-mono"><i class="fa-solid fa-user-tag text-brand-glow"></i> Username</span>
+            <span id="pf-username" class="text-xs font-bold text-white break-all text-right ml-3"></span>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+            <span class="text-xs text-gray-300 font-mono"><i class="fa-solid fa-shield-halved text-brand-glow"></i> Role</span>
+            <span id="pf-role-text" class="text-xs font-bold text-white"></span>
+        </div>
+        <div class="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/10">
+            <span class="text-xs text-gray-300 font-mono"><i class="fa-solid fa-key text-brand-glow"></i> Akses</span>
+            <span id="pf-access-text" class="text-xs font-bold text-white"></span>
+        </div>
+    </div>
+
+    <div class="space-y-2">
+        <button onclick="changePassword()" class="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm hover:bg-white/15 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-key"></i> Ubah Password
+        </button>
+        <form id="pw-form" class="hidden glass-card rounded-2xl p-4 space-y-3" onsubmit="submitPassword(event)" autocomplete="off">
+            <p class="text-xs font-bold text-white">Ubah Password</p>
+            <input type="password" id="pw-old" maxlength="72" placeholder="Password lama" autocomplete="current-password"
+                class="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-accent transition placeholder-gray-500">
+            <input type="password" id="pw-new" maxlength="72" placeholder="Password baru (min. 8 karakter)" autocomplete="new-password"
+                class="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-accent transition placeholder-gray-500">
+            <input type="password" id="pw-new2" maxlength="72" placeholder="Ulangi password baru" autocomplete="new-password"
+                class="w-full bg-white/5 border border-white/20 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-accent transition placeholder-gray-500">
+            <p id="pw-msg" class="text-center text-xs hidden"></p>
+            <button type="submit" id="pw-btn" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-accent to-pink-500 text-white font-bold text-sm shadow-neon-purple hover:opacity-90 transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-floppy-disk"></i> Simpan Password
+            </button>
+        </form>
+        <button onclick="doLogout()" class="w-full py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-right-from-bracket"></i> Logout
+        </button>
+    </div>
+</section>
+
     <!-- ============================================
          JAVASCRIPT: LOGIKA TOOLS & DOWNLOADER
          ============================================ -->
     <script>
         // ====== KONFIGURASI API ======
-console.log('bcrypt?', typeof bcrypt);
         const SUPABASE_URL = 'https://quvpalomcsxkzqayrccf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_N07jRRM7PNuYE69O_lw-_w_oTFij6pc';
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
-const COBALT_API_URL = "https://www.tikwm.com/api/";
+function safeUrl(u) {
+    try {
+        const x = new URL(u, location.href);
+        return (x.protocol === 'https:' || x.protocol === 'http:') ? x.href : '';
+    } catch { return ''; }
+}
+function escapeHtml(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+const X_BASE_URL = 'https://www.api-xyurei.my.id/api/download/';
+const TIKWM_BASE_URL = 'https://www.tikwm.com/api/';
 
           const TOOL_CONFIG = {
             tiktok:    { name: 'TikTok',      icon: 'fa-brands fa-tiktok',     color: 'text-pink-400' },
@@ -434,7 +1439,7 @@ const COBALT_API_URL = "https://www.tikwm.com/api/";
             if (existing) existing.remove();
 
             const roomHTML = `
-                <div id="tool-room" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                <div id="tool-room" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
                     <div class="glass-card w-full max-w-md rounded-2xl p-6 relative shadow-neon-purple">
                         <button onclick="document.getElementById('tool-room').remove()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
                             <i class="fa-solid fa-xmark text-xl"></i>
@@ -446,7 +1451,7 @@ const COBALT_API_URL = "https://www.tikwm.com/api/";
                             </div>
                             <div>
                                 <h3 class="font-bold text-white">${config.name} Downloader</h3>
-                                <p class="text-[10px] text-gray-400 font-mono">Powered by Cobalt API</p>
+                                <p class="text-[10px] text-gray-400 font-mono">Powered by TikWM & Xyurei</p>
                             </div>
                         </div>
 
@@ -517,6 +1522,8 @@ const COBALT_API_URL = "https://www.tikwm.com/api/";
 
         // ====== DOWNLOAD ======
         async function startDownload() {
+    if (!checkRateLimit('download')) return;
+    
             const urlInput = document.getElementById('media-url');
             const btn = document.getElementById('dl-btn');
             const statusDiv = document.getElementById('dl-status');
@@ -536,6 +1543,15 @@ if (toolTitle.includes('YouTube')) {
     }
     return startYouTubeDownload(url, btn, statusDiv, statusText);
 }
+
+// Cek apakah ini Instagram
+if (toolTitle.includes('Instagram')) {
+    return startInstagramDownload(url, btn, statusDiv, statusText);
+}
+// Cek apakah ini Spotify
+if (toolTitle.includes('Spotify')) {
+    return startSpotifyDownload(url, btn, statusDiv, statusText);
+}
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> Processing...`;
             statusDiv.classList.remove('hidden');
@@ -543,11 +1559,10 @@ if (toolTitle.includes('YouTube')) {
 
             try {
 
-                const response = await fetch(COBALT_API_URL + "?url=" + encodeURIComponent(url));
+                const response = await fetch("https://www.tikwm.com/api/?url=" + encodeURIComponent(url));
 
                 const data = await response.json();
-                console.log("Cobalt response:", data);
-
+                
                 if (data.code === 0 && data.data) {
     const previewArea = document.getElementById('preview-area');
     const previewThumb = document.getElementById('preview-thumb');
@@ -564,7 +1579,7 @@ if (toolTitle.includes('YouTube')) {
     const linkDownload = downloadMode === 'audio' ? data.data.music : data.data.play;
     if (linkDownload) {
         const a = document.createElement('a');
-        a.href = linkDownload;
+        a.href = safeUrl(linkDownload);
         a.download = downloadMode === 'audio' ? 'audio.mp3' : 'video.mp4';
         a.target = '_blank';
         document.body.appendChild(a);
@@ -581,7 +1596,7 @@ if (toolTitle.includes('YouTube')) {
 
             } catch (err) {
                 console.error("Download error:", err);
-                statusText.innerHTML = `<span class="text-red-400">❌ Error: ${err.message}</span>`;
+                statusText.innerHTML = `<span class="text-red-400">❌ Error: ${escapeHtml(err.message)}</span>`;
             } finally {
                 btn.disabled = false;
                 setTimeout(() => {
@@ -604,28 +1619,34 @@ function copyLink() {
         btn.innerHTML = `<i class="fa-solid fa-check"></i> Copied!`;
         setTimeout(() => {
             btn.innerHTML = `<i class="fa-solid fa-copy"></i> Copy Link`;
-        }, 2000);
+        }, 7000);
     });
 }
 
 async function startYouTubeDownload(url, btn, statusDiv, statusText) {
     statusText.textContent = "Menghubungi server YouTube...";
     try {
-        const response = await fetch(`https://www.api-xyurei.my.id/api/download/ytmp4?apikey=xyureifree-eb11b&url=${encodeURIComponent(url)}&quality=1080`);
+        const response = await fetch(`/api/dl?type=ytmp4&url=${encodeURIComponent(url)}&quality=1080`);
         const data = await response.json();
         if (data.status && data.result) {
             document.getElementById('preview-thumb').src = data.result.image || '';
             document.getElementById('preview-title').textContent = data.result.title || 'Tanpa judul';
             document.getElementById('preview-author').textContent = 'YouTube • ' + (data.result.quality || 'HD');
             document.getElementById('preview-area').classList.remove('hidden');
-            window.location.href = data.result.download;
+            const a = document.createElement('a');
+a.href = safeUrl(data.result.download);
+a.download = 'video.mp4';
+a.target = '_blank';
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
             btn.innerHTML = `<i class="fa-solid fa-check"></i> Done`;
             statusText.textContent = "✅ Berhasil!";
         } else {
             throw new Error(data.message || "Video tidak ditemukan.");
         }
     } catch (err) {
-        statusText.innerHTML = `<span class="text-red-400">❌ Error: ${err.message}</span>`;
+        statusText.innerHTML = `<span class="text-red-400">❌ Error: ${escapeHtml(err.message)}</span>`;
     } finally {
         btn.disabled = false;
         setTimeout(() => {
@@ -637,9 +1658,8 @@ async function startYouTubeDownload(url, btn, statusDiv, statusText) {
 async function startYouTubeAudio(url, btn, statusDiv, statusText) {
     statusText.textContent = "Menghubungi server YouTube MP3...";
     try {
-        const response = await fetch(`https://www.api-xyurei.my.id/api/download/ytmp3?apikey=xyureifree-eb11b&url=${encodeURIComponent(url)}`);
+        const response = await fetch(`/api/dl?type=ytmp3&url=${encodeURIComponent(url)}`);
         const data = await response.json();
-        console.log("YTMP3 response:", data);
 
         if (data.status && data.result && data.result.video) {
             const v = data.result.video;
@@ -649,12 +1669,105 @@ async function startYouTubeAudio(url, btn, statusDiv, statusText) {
             document.getElementById('preview-author').textContent = 'YouTube MP3 • ' + (v.download?.quality || '');
             document.getElementById('preview-area').classList.remove('hidden');
 
-            window.location.href = v.download.url;
+            const a = document.createElement('a');
+a.href = safeUrl(v.download.url);
+a.download = 'audio.mp3';
+a.target = '_blank';
+document.body.appendChild(a);
+a.click();
+document.body.removeChild(a);
             btn.innerHTML = `<i class="fa-solid fa-check"></i> Done`;
             statusText.textContent = "✅ Berhasil!";
         } else {
             throw new Error(data.message || "Audio tidak ditemukan.");
         }
+    } catch (err) {
+        statusText.innerHTML = `<span class="text-red-400">❌ Error: ${escapeHtml(err.message)}</span>`;
+    } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+            if (btn.innerHTML.includes("fa-check")) btn.innerHTML = `<i class="fa-solid fa-download"></i> Download`;
+            statusDiv.classList.add('hidden');
+        }, 2500);
+    }
+}
+// ====== INSTAGRAM DOWNLOADER (NexRay) ======
+async function startInstagramDownload(url, btn, statusDiv, statusText) {
+    statusText.textContent = "Mengambil media dari Instagram...";
+    try {
+        const response = await fetch(`https://api.nexray.eu.cc/downloader/instagram?url=${encodeURIComponent(url)}`);
+        const data = await response.json();
+
+        if (!data.status || !Array.isArray(data.result) || data.result.length === 0) {
+            throw new Error("Media tidak ditemukan. Pastikan post tidak private.");
+        }
+
+        const items = data.result;
+
+        // Update preview pakai media pertama
+        const first = items[0];
+        const isFirstVideo = first.type === "video";
+        document.getElementById('preview-thumb').src = first.thumbnail || '';
+        document.getElementById('preview-title').textContent = `Instagram • ${items.length} media`;
+        document.getElementById('preview-author').textContent = isFirstVideo ? 'Video' : 'Foto';
+        document.getElementById('preview-area').classList.remove('hidden');
+
+        // Download semua media
+        items.forEach((item, i) => {
+            setTimeout(() => {
+                const a = document.createElement('a');
+                a.href = safeUrl(item.url);
+                a.download = `instagram_${i+1}.${item.type === 'video' ? 'mp4' : 'jpg'}`;
+                a.target = '_blank';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }, i * 800);
+        });
+
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Done`;
+        statusText.textContent = `✅ Berhasil! ${items.length} media diunduh.`;
+    } catch (err) {
+        statusText.innerHTML = `<span class="text-red-400">❌ Error: ${escapeHtml(err.message)}</span>`;
+    } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+            if (btn.innerHTML.includes("fa-check")) btn.innerHTML = `<i class="fa-solid fa-download"></i> Download`;
+            statusDiv.classList.add('hidden');
+        }, 2500);
+    }
+}
+
+// ====== SPOTIFY DOWNLOADER (NexRay) ======
+async function startSpotifyDownload(url, btn, statusDiv, statusText) {
+    statusText.textContent = "Mengambil lagu dari Spotify...";
+    try {
+        const response = await fetch(`https://api.nexray.eu.cc/downloader/spotify?url=${encodeURIComponent(url)}`);
+        const data = await response.json();
+
+        if (!data.status || !data.result || !data.result.url) {
+            throw new Error("Lagu tidak ditemukan. Pastikan link Spotify valid.");
+        }
+
+        const r = data.result;
+
+        // Update preview
+        document.getElementById('preview-thumb').src = ''; // NexRay gak kasih thumbnail
+        document.getElementById('preview-title').textContent = r.title || 'Tanpa judul';
+        document.getElementById('preview-author').textContent = r.artist || 'Unknown Artist';
+        document.getElementById('preview-area').classList.remove('hidden');
+
+        // Download MP3
+        const a = document.createElement('a');
+        a.href = safeUrl(r.url);
+        a.download = `${(r.title || 'audio').replace(/[^\w\s-]/g, '')}.mp3`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        btn.innerHTML = `<i class="fa-solid fa-check"></i> Done`;
+        statusText.textContent = `✅ Berhasil! ${r.title} - ${r.artist}`;
     } catch (err) {
         statusText.innerHTML = `<span class="text-red-400">❌ Error: ${err.message}</span>`;
     } finally {
@@ -665,19 +1778,97 @@ async function startYouTubeAudio(url, btn, statusDiv, statusText) {
         }, 2500);
     }
 }
-// ====== UPDATE MODAL ======
-const APP_VERSION = 'v3.5';
 
+// ====== PROFILE ======
+function openProfile() {
+    const username = localStorage.getItem('username') || 'Guest';
+    const role = localStorage.getItem('role') || 'user';
+
+    const roleData = {
+        owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40', icon: 'fa-crown' },
+        admin: { label: 'Admin', color: 'bg-red-500/20 text-red-400 border-red-500/40', icon: 'fa-shield-halved' },
+        user:  { label: 'User',  color: 'bg-blue-500/20 text-blue-400 border-blue-500/40', icon: 'fa-user' }
+    };
+    const r = roleData[role] || roleData.user;
+    const isVVIP = role === 'owner' || role === 'admin';
+
+    const existing = document.getElementById('profile-modal');
+    if (existing) existing.remove();
+
+    const html = `
+        <div id="profile-modal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in" onclick="if(event.target.id==='profile-modal')closeProfile()">
+            <div class="glass-card w-full max-w-md rounded-2xl p-6 relative shadow-neon-purple">
+                <button onclick="closeProfile()" class="absolute top-4 right-4 text-gray-500 hover:text-white transition">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+
+                <div class="flex flex-col items-center mb-6">
+                    <div class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-brand-accent via-pink-500 to-brand-cyan p-0.5 shadow-neon-purple">
+                        <div class="w-full h-full bg-brand-800 rounded-[14px] flex items-center justify-center overflow-hidden">
+                            <i class="fa-solid fa-user text-brand-glow text-3xl"></i>
+                        </div>
+                    </div>
+                    <h2 class="text-xl font-black text-white mt-3">${escapeHtml(username)}</h2>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="px-2.5 py-0.5 rounded-md ${r.color} text-[10px] font-mono font-bold border uppercase tracking-wider flex items-center gap-1">
+                            <i class="fa-solid ${r.icon} text-[9px]"></i> ${r.label}
+                        </span>
+                        <span class="px-2 py-0.5 rounded ${isVVIP ? 'bg-brand-accent/20 text-brand-glow border-brand-accent/30' : 'bg-blue-500/20 text-blue-300 border-blue-500/30'} text-[10px] font-mono border">
+                            ${isVVIP ? 'VVIP ACCESS' : 'FREE ACCESS'}
+                        </span>
+                    </div>
+                </div>
+
+                <div class="space-y-2 mb-5">
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-brand-900/50 border border-brand-700/60">
+                        <span class="text-xs text-gray-400 font-mono"><i class="fa-solid fa-user-tag text-brand-accent"></i> Username</span>
+                         <span class="text-xs font-bold text-white">${escapeHtml(username)}</span>
+                    </div>
+                    <div class="flex items-center justify-between p-3 rounded-xl bg-brand-900/50 border border-brand-700/60">
+                        <span class="text-xs text-gray-400 font-mono"><i class="fa-solid fa-shield-halved text-brand-accent"></i> Role</span>
+                        <span class="text-xs font-bold text-white">${r.label}</span>
+                    </div>
+                </div>
+
+                <div class="space-y-2">
+                    <button onclick="changePassword()" class="w-full py-3 rounded-xl bg-brand-800 border border-brand-700 text-gray-300 font-bold text-sm hover:text-white hover:border-brand-accent transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-key"></i> Ubah Password
+                    </button>
+                    <button onclick="closeProfile(); doLogout();" class="w-full py-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 font-bold text-sm hover:bg-red-500/20 transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.insertAdjacentHTML('beforeend', html);
+    document.body.style.overflow = 'hidden';
+}
+
+function closeProfile() {
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.remove();
+    document.body.style.overflow = '';
+}
+
+function changePassword() {
+    alert('🔐 Fitur Ubah Password\n\nSegera hadir di update selanjutnya!');
+}
+
+// ====== UPDATE MODAL ======
+
+const APP_VERSION = 'v4.0';
 window.addEventListener('load', () => {
-    const savedVersion = localStorage.getItem('app_version_v35');
+    const savedVersion = localStorage.getItem('app_version_v40');
     if (savedVersion !== APP_VERSION) {
         document.getElementById('update-modal').classList.remove('hidden');
-        document.getElementById('current-version').textContent = savedVersion || 'v3.5';;
+        document.getElementById('current-version').textContent = savedVersion || 'v3.5';
     }
 });
 
 function closeUpdateModal() {
-    localStorage.setItem('app_version_v3.5', APP_VERSION);
+    localStorage.setItem('app_version_v40', APP_VERSION);
     document.getElementById('update-modal').classList.add('hidden');
 }
 // ====== AUTH SYSTEM ======
@@ -699,6 +1890,8 @@ function toggleAuthMode() {
 }
 
 async function handleLogin() {
+    if (!checkRateLimit('login')) return;
+    
     const username = document.getElementById('auth-username').value.trim();
     const password = document.getElementById('auth-password').value.trim();
     const btn = document.getElementById('auth-btn');
@@ -716,47 +1909,64 @@ async function handleLogin() {
     
     try {
         if (isRegisterMode) {
-            // ===== REGISTER =====
-            const hashedPassword = await bcrypt.hash(password, 10);
-            
-            const { data, error } = await supabaseClient
-                .from('profiles')
-                .insert([{ username, password: hashedPassword, role: 'user' }])
-                .select();
-            
-            if (error) throw error;
-            
+            const res = await fetch('https://quvpalomcsxkzqayrccf.supabase.co/functions/v1/quick-endpoint', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ action: 'register', username, password })
+});
+const result = await res.json();
+if (!res.ok) throw new Error(result.error || 'Gagal daftar');
             msg.textContent = '✅ Berhasil daftar! Silakan login.';
             msg.className = 'text-center text-xs mt-3 text-green-400';
             msg.classList.remove('hidden');
             setTimeout(() => toggleAuthMode(), 1500);
             
         } else {
-            // ===== LOGIN =====
-            const { data, error } = await supabaseClient
-                .from('profiles')
-                .select('*')
-                .eq('username', username)
-                .single();
-            
-            if (error || !data) throw new Error('Username tidak ditemukan!');
-            
-            const passwordMatch = await bcrypt.compare(password, data.password);
-            
-            if (!passwordMatch) throw new Error('Password salah!');
+            const res = await fetch('https://quvpalomcsxkzqayrccf.supabase.co/functions/v1/quick-endpoint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'login', username, password })
+            });
+            const result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Gagal login');
+            const data = result.user;
             
             localStorage.setItem('user_id', data.id);
             localStorage.setItem('username', data.username);
             localStorage.setItem('role', data.role);
+            if (result.token) localStorage.setItem('token', result.token); else localStorage.removeItem('token');
             
-            msg.textContent = '✅ Login berhasil!';
-            msg.className = 'text-center text-xs mt-3 text-green-400';
-            msg.classList.remove('hidden');
-            
-            setTimeout(() => {
-                document.getElementById('auth-page').classList.add('hidden');
-                loadUserProfile();
-            }, 1000);
+        msg.textContent = '✅ Login berhasil!';
+        msg.className = 'text-center text-xs mt-3 text-green-400';
+        msg.classList.remove('hidden');
+        
+      startSplash(function () { document.getElementById('auth-page').classList.add('hidden'); loadUserProfile(); }); return;
+const splash = document.getElementById('splash-screen');
+splash.classList.remove('opacity-0', 'pointer-events-none');
+
+// Reset video ke detik 0
+resetSplashVideo();
+
+// Coba unmute video
+setTimeout(() => unmuteSplashVideo(), 100);
+        
+        setTimeout(() => {
+    document.getElementById('auth-page').classList.add('hidden');
+    loadUserProfile();
+    splash.style.opacity = '0';
+    
+    // Matiin video + suara
+    const splashVideo = document.getElementById('splash-video');
+    if (splashVideo) {
+        splashVideo.pause();
+        splashVideo.muted = true;
+        splashVideo.currentTime = 0;
+    }
+    
+    setTimeout(() => {
+        splash.classList.add('pointer-events-none');
+    }, 500);
+}, 11000);
         }
     } catch (err) {
         console.error(err);
@@ -773,19 +1983,21 @@ async function handleLogin() {
     }
 }
 
+// ====== LOAD USER PROFILE ======
 function loadUserProfile() {
     const username = localStorage.getItem('username') || 'Guest';
     const role = localStorage.getItem('role') || 'user';
     
-    const nameEl = document.querySelector('h2.text-lg.font-black');
-    if (nameEl) nameEl.textContent = username;
-    
+    // Update nama user di kartu profil
+    const nameEl = document.getElementById('profile-username');
+if (nameEl) nameEl.textContent = username;
+
+    // Update badge role di kartu profil
     const roleBadge = document.getElementById('user-role-badge');
     if (roleBadge) {
         const roles = {
-            admin: { label: 'Admin', color: 'bg-red-500/20 text-red-400 border-red-500/40', icon: 'fa-crown' },
-            moderator: { label: 'Mod', color: 'bg-orange-500/20 text-orange-400 border-orange-500/40', icon: 'fa-shield' },
-            vip: { label: 'VIP', color: 'bg-purple-500/20 text-purple-400 border-purple-500/40', icon: 'fa-star' },
+            owner: { label: 'Owner', color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40', icon: 'fa-crown' },
+            admin: { label: 'Admin', color: 'bg-red-500/20 text-red-400 border-red-500/40', icon: 'fa-shield-halved' },
             user: { label: 'User', color: 'bg-blue-500/20 text-blue-400 border-blue-500/40', icon: 'fa-user' }
         };
         
@@ -793,16 +2005,85 @@ function loadUserProfile() {
         roleBadge.className = `px-2.5 py-0.5 rounded-md ${r.color} text-[10px] font-mono font-bold border uppercase tracking-wider flex items-center gap-1`;
         roleBadge.innerHTML = `<i class="fa-solid ${r.icon} text-[9px]"></i> ${r.label}`;
     }
+
+    // Toggle badge akses: FREE untuk user, VVIP untuk owner/admin
+    const accessBadge = document.getElementById('access-badge');
+    if (accessBadge) {
+        if (role === 'owner' || role === 'admin') {
+            accessBadge.textContent = 'VVIP ACCESS';
+            accessBadge.className = 'px-2 py-0.5 rounded bg-brand-accent/20 text-brand-glow text-[10px] font-mono border border-brand-accent/30';
+        } else {
+            accessBadge.textContent = 'FREE ACCESS';
+            accessBadge.className = 'px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-mono border border-blue-500/30';
+        }
+    }
+}
+
+// ====== CHECK SESSION ======
+function checkSession() {
+    if (localStorage.getItem('user_id')) {
+        startSplash(function () {
+            document.getElementById('auth-page').classList.add('hidden');
+            loadUserProfile();
+        });
+    }
+}
+
+function checkSessionLama() {
+    const userId = localStorage.getItem('user_id');
+    if (userId) {
+            const splash = document.getElementById('splash-screen');
+    splash.classList.remove('opacity-0', 'pointer-events-none');
+    
+    // Reset video ke detik 0
+    resetSplashVideo();
+
+// Coba unmute video
+setTimeout(() => unmuteSplashVideo(), 100);
+    
+    setTimeout(() => {
+        document.getElementById('auth-page').classList.add('hidden');
+        loadUserProfile();
+        splash.style.opacity = '0';
+        setTimeout(() => {
+            splash.classList.add('pointer-events-none');
+        }, 500);
+    }, 7000);
+    }
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    if (sidebar.classList.contains('translate-x-full')) {
+        sidebar.classList.remove('translate-x-full');
+        overlay.classList.remove('hidden');
+    } else {
+        sidebar.classList.add('translate-x-full');
+        overlay.classList.add('hidden');
+    }
+}
+
+function doLogout() {
+    if (confirm('Yakin mau keluar?')) {
+        localStorage.removeItem('user_id');
+        localStorage.removeItem('username');
+        localStorage.removeItem('role');
+        try { var _t = localStorage.getItem('token'); if (_t) fetch('https://quvpalomcsxkzqayrccf.supabase.co/functions/v1/quick-endpoint', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'logout', token: _t }), keepalive: true }); } catch (e) {}
+        localStorage.removeItem('token');
+        location.reload();
+    }
 }
 // ====== INIT ======
 checkSession();
-        setInterval(() => {
-             const pingEl = document.getElementById('ping-text');
-            if (pingEl) {
-                const ping = Math.floor(Math.random() * 40) + 15;
-                pingEl.textContent = ping + ' ms';
-            }
-        }, 3000);
+setInterval(() => {
+    const pingEl = document.getElementById('ping-text');
+    if (pingEl) {
+        const ping = Math.floor(Math.random() * 40) + 15;
+        pingEl.textContent = ping + ' ms';
+    }
+}, 3000);
 
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
@@ -815,52 +2096,689 @@ checkSession();
                 e.target.remove();
             }
         });
+// ====== RESET SPLASH VIDEO ======
+function resetSplashVideo() {
+    const video = document.getElementById('splash-video');
+    if (!video) return;
+    video.pause();
+    video.currentTime = 0;
+    video.load();
+}
+
+// ====== SPLASH VIDEO UNMUTE ======
+function unmuteSplashVideo() {
+    const video = document.getElementById('splash-video');
+    if (!video) return;
+    video.muted = false;
+    video.volume = 0.5;
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+        playPromise.catch(() => {
+            video.muted = true;
+            video.play();
+        });
+    }
+}
+
+// ====== PROTEKSI WEB ======
+// Block klik kanan
+document.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// ====== ANTI SPAM & RATE LIMIT ======
+const RATE_LIMIT = {
+    download: { max: 10, window: 60000 },
+    login:    { max: 5,  window: 60000 },
+};
+
+const rateTracker = {};
+
+function checkRateLimit(action) {
+    const limit = RATE_LIMIT[action];
+    if (!limit) return true;
+    
+    const now = Date.now();
+    if (!rateTracker[action]) rateTracker[action] = [];
+    
+    rateTracker[action] = rateTracker[action].filter(t => now - t < limit.window);
+    
+    if (rateTracker[action].length >= limit.max) {
+        const sisaDetik = Math.ceil((limit.window - (now - rateTracker[action][0])) / 1000);
+        alert(`⚠️ Terlalu banyak request!\nCoba lagi dalam ${sisaDetik} detik.`);
+        return false;
+    }
+    
+    rateTracker[action].push(now);
+    return true;
+}
+
+// ====== BLOKIR SPAM REFRESH ======
+let reloadCount = 0;
+setInterval(() => { reloadCount = 0; }, 10000);
+
+window.addEventListener('beforeunload', () => {
+    reloadCount++;
+    if (reloadCount > 10) {
+        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-family:sans-serif;text-align:center;padding:20px;"><div><h1>⚠️ Akses Dibatasi</h1><p>Terlalu banyak refresh. Tunggu 10 detik.</p></div></div>';
+    }
+});
+
+// ====== DETEKSI AUTOMATION ======
+if (navigator.webdriver) {
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-family:sans-serif;"><h1>🤖 Bot terdeteksi</h1></div>';
+}
+
+// Block shortcut DevTools
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'F12') { e.preventDefault(); return false; }
+    if (e.ctrlKey && e.shiftKey && ['I', 'J', 'C'].includes(e.key.toUpperCase())) {
+        e.preventDefault(); return false;
+    }
+    if (e.ctrlKey && e.key.toUpperCase() === 'U') {
+        e.preventDefault(); return false;
+    }
+});
     </script>
-<!-- Modal Update -->
-<div id="update-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-    <div class="glass-card w-full max-w-md rounded-2xl p-6 relative shadow-neon-purple max-h-[80vh] overflow-y-auto">
+
+<!-- Modal Update - Liquid Glass Ungu -->
+<div id="update-modal" class="hidden fixed inset-0 z-[200] flex items-center justify-center p-4"
+     style="background: rgba(0,0,0,0.6); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);">
+
+    <div class="relative w-full max-w-[340px] rounded-[32px] overflow-hidden animate-slide-down max-h-[85vh] overflow-y-auto"
+         style="background: linear-gradient(145deg,
+                        rgba(139, 92, 246, 0.25),
+                        rgba(139, 92, 246, 0.10),
+                        rgba(236, 72, 153, 0.15));
+                backdrop-filter: blur(40px);
+                -webkit-backdrop-filter: blur(40px);
+                border: 1px solid rgba(196, 181, 253, 0.35);
+                box-shadow: 0 30px 60px rgba(0, 0, 0, 0.5),
+                            0 0 0 1px rgba(139, 92, 246, 0.2),
+                            0 0 40px rgba(139, 92, 246, 0.3),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                            inset 0 -1px 0 rgba(139, 92, 246, 0.4);">
+
+        <div class="absolute -top-16 -right-16 w-48 h-48 rounded-full pointer-events-none"
+             style="background: radial-gradient(circle, rgba(139, 92, 246, 0.6), transparent 70%); filter: blur(35px);"></div>
+        <div class="absolute -bottom-20 -left-16 w-56 h-56 rounded-full pointer-events-none"
+             style="background: radial-gradient(circle, rgba(139, 92, 246, 0.5), transparent 70%); filter: blur(40px);"></div>
+
+        <div class="relative z-10 px-5 pt-6 pb-5">
+
+            <div class="flex justify-center mb-6">
+                <div class="w-16 h-16 rounded-[22px] flex items-center justify-center"
+                     style="background: linear-gradient(135deg, #8b5cf6, #a78bfa, #8b5cf6);
+                            box-shadow: 0 20px 50px rgba(139, 92, 246, 0.7),
+                                        0 0 0 1px rgba(255, 255, 255, 0.3),
+                                        inset 0 2px 0 rgba(255, 255, 255, 0.5),
+                                        inset 0 -2px 0 rgba(0, 0, 0, 0.2);">
+                   <i class="fa-solid fa-bolt text-white text-2xl"  style="filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4));"></i>
+                </div>
+            </div>
+
+            <div class="text-center mb-6">
+                <h3 class="text-[22px] font-black text-white tracking-tight" style="text-shadow: 0 0 20px rgba(139, 92, 246, 0.6);">New Update 4.0</h3>
+                <p class="text-[12px] mt-1.5 font-medium" style="color: rgba(196, 181, 253, 0.9);">30 September 2026</p>
+            </div>
+
+            <div class="space-y-2.5">
+                <div class="flex items-center gap-3 p-2.5 rounded-xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Login System</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Splash Screen Gojo</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Fake Lobby FF</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Sidebar Kanan</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Efek Lighting</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Instagram Downloader</span>
+                </div>
+
+                <div class="flex items-center gap-3 p-3 rounded-2xl"
+                     style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.18), rgba(139, 92, 246, 0.06));
+                            border: 1px solid rgba(196, 181, 253, 0.25);
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);">
+                    <span class="text-[13px] font-semibold" style="color: rgba(255,255,255,0.95);"> Spotify Downloader</span>
+                </div>
+            </div>
+
+            <div class="mt-5 pt-4" style="border-top: 1px solid rgba(196, 181, 253, 0.25);">
+                <p class="text-[10px] font-black tracking-widest mb-2.5" style="color: #c4b5fd;"> COMING SOON v5.0</p>
+                <div class="flex flex-wrap gap-1.5">
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> Profile</span>
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> Premium</span>
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> BRAT</span>
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> Settings</span>
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> Wallet</span>
+                    <span class="px-2.5 py-1 rounded-lg text-[9px] font-mono font-bold"
+                          style="background: rgba(139,92,246,0.25); color: #fff; border: 1px solid rgba(196,181,253,0.3);"> Terabox</span>
+                </div>
+            </div>
+
+           <button onclick="closeUpdateModal()"
+        class="w-full mt-5 py-3 rounded-2xl text-white font-bold text-[14px] transition active:scale-[0.97]"
+        style="background: linear-gradient(135deg, #8b5cf6, #a78bfa);
+                           box-shadow: 0 15px 40px rgba(139, 92, 246, 0.7),
+                                       inset 0 1px 0 rgba(255,255,255,0.4),
+                                       inset 0 -1px 0 rgba(0,0,0,0.2);">
+                Mulai
+            </button>
+        </div>
+    </div>
+</div>
+
+<nav id="bottom-nav" class="bn" aria-label="Navigasi utama">
+    <div class="bn-ind" id="bn-ind"></div>
+    <button class="bn-btn active" onclick="bnHome()"><i class="fa-solid fa-house"></i><span>Beranda</span></button>
+    <button class="bn-btn" onclick="bnTools()"><i class="fa-solid fa-toolbox"></i><span>Tools</span></button>
+    <button class="bn-btn" onclick="bnChat()"><i class="fa-solid fa-comments"></i><span>Chat</span></button>
+    <button class="bn-btn" onclick="bnProfile()"><i class="fa-solid fa-user"></i><span>Profil</span></button>
+</nav>
+<script>
+(function () {
+    var ind = document.getElementById('bn-ind');
+    var btns = document.querySelectorAll('#bottom-nav .bn-btn');
+    var current = 0;
+
+    function setActive(i) {
+        current = i;
+        ind.style.transform = 'translateX(' + (i * 100) + '%)';
+        btns.forEach(function (b, k) { b.classList.toggle('active', k === i); });
+    }
+    function bnToast(msg) {
+        var t = document.createElement('div');
+        t.className = 'bn-toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('show'); });
+        setTimeout(function () {
+            t.classList.remove('show');
+            setTimeout(function () { t.remove(); }, 300);
+        }, 1800);
+    }
+
+    window.bnHome = function () { window.scrollTo({ top: 0, behavior: 'smooth' }); setActive(0); };
+    window.bnTools = function () {
+        var g = document.getElementById('tools-grid');
+        if (g) g.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        setActive(1);
+    };
+    window.bnChat = function () { bnToast('💬 Chat segera hadir'); };
+    window.bnProfile = function () { if (typeof openProfile === 'function') openProfile(); };
+
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(function () {
+            var g = document.getElementById('tools-grid');
+            if (g) {
+                var i = g.getBoundingClientRect().top < window.innerHeight * 0.5 ? 1 : 0;
+                if (i !== current && !document.body.classList.contains('profile-open')) setActive(i);
+            }
+            ticking = false;
+        });
+    }, { passive: true });
+    window.bnSetActive = setActive;
+
+    setActive(0);
+})();
+</script>
+<div id="gfx-modal" class="hidden fixed inset-0 z-[260] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onclick="if(event.target.id==='gfx-modal')closeGraphics()">
+    <div class="glass-card w-full max-w-sm rounded-3xl p-5 relative">
+        <button onclick="closeGraphics()" class="absolute top-4 right-4 text-gray-400 hover:text-white transition">
+            <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+
         <div class="flex items-center gap-3 mb-5">
-            <div class="w-10 h-10 rounded-xl bg-brand-accent/20 border border-brand-accent/40 flex items-center justify-center">
-                <i class="fa-solid fa-arrows-rotate text-brand-glow"></i>
+            <div class="w-10 h-10 rounded-xl bg-brand-accent/30 border border-white/20 flex items-center justify-center">
+                <i class="fa-solid fa-sliders text-brand-glow text-lg"></i>
             </div>
             <div>
-                <h3 class="font-extrabold text-white">Update Web!</h3>
-                <p class="text-[10px] text-brand-glow font-mono font-bold">Versi v3.5 tersedia</p>
+                <h3 class="font-bold text-white">Graphics</h3>
+                <p class="text-[10px] text-gray-300 font-mono">ATUR EFEK TAMPILAN</p>
             </div>
         </div>
 
-        <div class="flex items-center justify-between p-3 rounded-xl bg-brand-900 border border-brand-700 mb-3">
-            <span class="text-xs text-gray-400 font-mono font-semibold"># Versi saat ini:</span>
-            <span class="px-2 py-0.5 rounded bg-brand-800 text-xs font-mono text-white font-bold" id="current-version">v2.5</span>
+        <p class="text-[10px] font-mono text-gray-300 tracking-widest mb-2">MODE</p>
+        <div class="grid grid-cols-2 gap-2 mb-1">
+            <button id="gfx-mode-normal" onclick="gfxMode('normal')" class="gfx-opt">Normal</button>
+            <button id="gfx-mode-smooth" onclick="gfxMode('smooth')" class="gfx-opt">Smooth</button>
+        </div>
+        <p class="text-[10px] text-gray-300 mb-4">Normal: efek penuh. Smooth: ringan, pilih ini kalau HP terasa lag.</p>
+
+        <p class="text-[10px] font-mono text-gray-300 tracking-widest mb-2">PRESET KACA</p>
+        <div class="grid grid-cols-3 gap-2 mb-4">
+            <button id="gfx-p-soft" onclick="gfxPreset('soft')" class="gfx-opt">Halus</button>
+            <button id="gfx-p-mid" onclick="gfxPreset('mid')" class="gfx-opt">Sedang</button>
+            <button id="gfx-p-strong" onclick="gfxPreset('strong')" class="gfx-opt">Kuat</button>
         </div>
 
-        <div class="p-3 rounded-xl bg-brand-900 border border-brand-700 mb-4">
-            <p class="text-xs font-extrabold text-white mb-3 flex items-center gap-2">
-                <i class="fa-solid fa-list"></i> Changelog
-            </p>
-            <div class="space-y-3 text-[11px] text-gray-300 font-medium">
-                <p class="text-white font-bold">v3.5 <span class="text-[9px] text-gray-500 font-normal">— 26 September 2026</span></p>
-                
-                <p class="text-brand-glow font-bold mt-2">Fitur Baru:</p>
-                <p>• TikTok Downloader (Video MP4 & Audio MP3)</p>
-                <p>• YouTube Downloader (Video MP4 & Audio MP3)</p>
-                <p>• Preview thumbnail + judul otomatis</p>
-                <p>• Copy Link cepat</p>
-                <p>• Tampilan baru yang lebih rapi</p>
-                <p>• Banner video anime di kartu profil</p>
-                <p>• Looping animek di background😱</p>
-
-                <p class="text-brand-cyan font-bold mt-3">Coming Soon:</p>
-                <p>• Instagram Downloader</p>
-                <p>• Spotify Downloader</p>
-                <p>• BRAT Generator</p>
-            </div>
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">Blur kaca</span>
+            <span id="gfx-blur-val" class="text-xs font-mono text-brand-glow">24px</span>
         </div>
+        <input type="range" id="gfx-blur" min="0" max="50" step="1" value="24" oninput="gfxBlur(this.value)" class="mb-4">
 
-        <button onclick="closeUpdateModal()" class="w-full py-3 rounded-xl bg-gradient-to-r from-brand-accent to-pink-500 text-white font-bold text-sm shadow-neon-purple hover:opacity-90 transition flex items-center justify-center gap-2">
-            <i class="fa-solid fa-check"></i> Mulai Pakai
+        <div class="flex items-center justify-between mb-1">
+            <span class="text-xs font-bold text-white">Transparansi kaca</span>
+            <span id="gfx-alpha-val" class="text-xs font-mono text-brand-glow">10%</span>
+        </div>
+        <input type="range" id="gfx-alpha" min="2" max="30" step="1" value="10" oninput="gfxAlpha(this.value)" class="mb-5">
+
+        <button onclick="gfxReset()" class="w-full py-3 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-sm hover:bg-white/15 transition flex items-center justify-center gap-2">
+            <i class="fa-solid fa-rotate-left"></i> Reset ke bawaan
         </button>
     </div>
 </div>
+<script>
+(function () {
+    var KEY = 'gfx_v1';
+    var DEF = { blur: 24, alpha: 10, mode: 'normal' };
+    var PRESET = { soft: { blur: 12, alpha: 6 }, mid: { blur: 24, alpha: 10 }, strong: { blur: 40, alpha: 16 } };
+    var root = document.documentElement;
+    var st = load();
+
+    function $(id) { return document.getElementById(id); }
+    function num(v, min, max, d) { v = Number(v); return isNaN(v) ? d : Math.min(max, Math.max(min, v)); }
+    function load() {
+        try {
+            var s = JSON.parse(localStorage.getItem(KEY));
+            if (s) return { blur: num(s.blur, 0, 50, DEF.blur), alpha: num(s.alpha, 2, 30, DEF.alpha), mode: s.mode === 'smooth' ? 'smooth' : 'normal' };
+        } catch (e) {}
+        return { blur: DEF.blur, alpha: DEF.alpha, mode: DEF.mode };
+    }
+    function save() { try { localStorage.setItem(KEY, JSON.stringify(st)); } catch (e) {} }
+    function apply() {
+        root.style.setProperty('--glass-blur', st.blur + 'px');
+        root.style.setProperty('--glass-alpha', (st.alpha / 100).toFixed(2));
+        root.classList.toggle('perf-smooth', st.mode === 'smooth');
+        if ($('gfx-blur')) {
+            $('gfx-blur').value = st.blur;
+            $('gfx-blur-val').textContent = st.blur + 'px';
+            $('gfx-alpha').value = st.alpha;
+            $('gfx-alpha-val').textContent = st.alpha + '%';
+            $('gfx-mode-normal').classList.toggle('gfx-on', st.mode === 'normal');
+            $('gfx-mode-smooth').classList.toggle('gfx-on', st.mode === 'smooth');
+            ['soft', 'mid', 'strong'].forEach(function (k) {
+                var p = PRESET[k];
+                $('gfx-p-' + k).classList.toggle('gfx-on', p.blur === st.blur && p.alpha === st.alpha);
+            });
+        }
+    }
+
+    window.openGraphics = function () { $('gfx-modal').classList.remove('hidden'); apply(); };
+    window.closeGraphics = function () { $('gfx-modal').classList.add('hidden'); };
+    window.gfxMode = function (m) { st.mode = m === 'smooth' ? 'smooth' : 'normal'; save(); apply(); };
+    window.gfxBlur = function (v) { st.blur = num(v, 0, 50, DEF.blur); save(); apply(); };
+    window.gfxAlpha = function (v) { st.alpha = num(v, 2, 30, DEF.alpha); save(); apply(); };
+    window.gfxPreset = function (k) {
+        var p = PRESET[k]; if (!p) return;
+        st.blur = p.blur; st.alpha = p.alpha; save(); apply();
+    };
+    window.gfxReset = function () { st = { blur: DEF.blur, alpha: DEF.alpha, mode: DEF.mode }; save(); apply(); };
+
+    apply();
+})();
+</script>
+<script>
+(function () {
+    var ROLES = {
+        owner: { label: 'Owner', cls: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/40', icon: 'fa-crown' },
+        admin: { label: 'Admin', cls: 'bg-red-500/20 text-red-400 border-red-500/40', icon: 'fa-shield-halved' },
+        user:  { label: 'User',  cls: 'bg-blue-500/20 text-blue-400 border-blue-500/40', icon: 'fa-user' }
+    };
+    function $(id) { return document.getElementById(id); }
+    function isOpen() { return document.body.classList.contains('profile-open'); }
+
+    function fill() {
+        var username = localStorage.getItem('username') || 'Guest';
+        var role = localStorage.getItem('role') || 'user';
+        var r = Object.prototype.hasOwnProperty.call(ROLES, role) ? ROLES[role] : ROLES.user;
+        var vvip = role === 'owner' || role === 'admin';
+
+        $('pf-name').textContent = username;
+        $('pf-username').textContent = username;
+        $('pf-role-text').textContent = r.label;
+        $('pf-access-text').textContent = vvip ? 'VVIP Access' : 'Free Access';
+
+        var badge = $('pf-role');
+        badge.className = 'px-2.5 py-0.5 rounded-md ' + r.cls + ' text-[10px] font-mono font-bold border uppercase tracking-wider flex items-center gap-1 whitespace-nowrap';
+        badge.innerHTML = '<i class="fa-solid ' + r.icon + ' text-[9px]"></i> ' + r.label;
+
+        var acc = $('pf-access');
+        acc.textContent = vvip ? 'VVIP ACCESS' : 'FREE ACCESS';
+        acc.className = 'px-2 py-0.5 rounded text-[10px] font-mono border whitespace-nowrap ' +
+            (vvip ? 'bg-brand-accent/20 text-brand-glow border-brand-accent/30'
+                  : 'bg-blue-500/20 text-blue-300 border-blue-500/30');
+    }
+
+    window.openProfile = function () {
+        fill();
+        document.querySelector('main').classList.add('hidden');
+        $('profile-page').classList.remove('hidden');
+        document.body.classList.add('profile-open');
+        window.scrollTo({ top: 0 });
+        if (window.bnSetActive) window.bnSetActive(3);
+    };
+
+    window.closeProfilePage = function () {
+        $('profile-page').classList.add('hidden');
+        document.querySelector('main').classList.remove('hidden');
+        document.body.classList.remove('profile-open');
+        window.scrollTo({ top: 0 });
+        if (window.bnSetActive) window.bnSetActive(0);
+    };
+
+    // Tombol lain otomatis menutup halaman profil dulu
+    var _home = window.bnHome, _tools = window.bnTools;
+    var _switch = window.switchView, _filter = window.filterCategory;
+
+    window.bnHome = function () { if (isOpen()) closeProfilePage(); if (_home) _home(); };
+    window.bnTools = function () {
+        if (isOpen()) { closeProfilePage(); setTimeout(function () { if (_tools) _tools(); }, 60); }
+        else if (_tools) _tools();
+    };
+    window.switchView = function (v) { if (isOpen()) closeProfilePage(); if (_switch) _switch(v); };
+    window.filterCategory = function (c) { if (isOpen()) closeProfilePage(); if (_filter) _filter(c); };
+})();
+</script>
+<script>
+(function () {
+    var API = 'https://quvpalomcsxkzqayrccf.supabase.co/functions/v1/quick-endpoint';
+    function $(id) { return document.getElementById(id); }
+    function msg(text, ok) {
+        var m = $('pw-msg');
+        m.textContent = text;
+        m.className = 'text-center text-xs ' + (ok ? 'text-green-400' : 'text-red-400');
+    }
+
+    // Tombol "Ubah Password" sekarang membuka/menutup form
+    window.changePassword = function () {
+        var f = $('pw-form');
+        if (!f) return;
+        f.classList.toggle('hidden');
+        $('pw-msg').className = 'text-center text-xs hidden';
+    };
+
+    window.submitPassword = async function (e) {
+        e.preventDefault();
+        var username = localStorage.getItem('username');
+        var oldPw = $('pw-old').value;
+        var newPw = $('pw-new').value;
+        var newPw2 = $('pw-new2').value;
+        var btn = $('pw-btn');
+
+        if (!username) return msg('❌ Login dulu.', false);
+        if (!oldPw || !newPw || !newPw2) return msg('❌ Isi semua kolom!', false);
+        if (newPw.length < 8) return msg('❌ Password baru minimal 8 karakter!', false);
+        if (newPw !== newPw2) return msg('❌ Ulangi password tidak sama!', false);
+        if (newPw === oldPw) return msg('❌ Password baru harus beda dari yang lama!', false);
+        if (typeof checkRateLimit === 'function' && !checkRateLimit('login')) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Menyimpan...';
+        try {
+            var res = await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'change_password', username: username, password: oldPw, new_password: newPw })
+            });
+            var result = await res.json();
+            if (!res.ok) throw new Error(result.error || 'Gagal mengubah password');
+            msg('✅ Password berhasil diubah!', true);
+            $('pw-old').value = ''; $('pw-new').value = ''; $('pw-new2').value = '';
+            setTimeout(function () {
+                $('pw-form').classList.add('hidden');
+                $('pw-msg').className = 'text-center text-xs hidden';
+            }, 2000);
+        } catch (err) {
+            msg('❌ ' + (err.message || 'Terjadi kesalahan'), false);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Simpan Password';
+        }
+    };
+})();
+</script>
+<div id="ai-page" aria-hidden="true">
+    <div class="ai-head">
+        <button class="ai-icon-btn" onclick="closeAiPage()" aria-label="Kembali"><i class="fa-solid fa-arrow-left"></i></button>
+        <div style="flex:1;min-width:0">
+            <div class="text-sm font-extrabold text-white leading-tight">AI Chat</div>
+            <div class="text-[10px] text-gray-300 font-mono">ADMIN &amp; OWNER</div>
+        </div>
+        <div class="ai-seg" role="group" aria-label="Mode tampilan">
+            <button id="ai-mode-normal" onclick="window.gfxMode && gfxMode('normal')">Normal</button>
+            <button id="ai-mode-smooth" onclick="window.gfxMode && gfxMode('smooth')">Smooth</button>
+        </div>
+        <button class="ai-icon-btn" onclick="clearAiChat()" aria-label="Hapus riwayat"><i class="fa-solid fa-trash-can"></i></button>
+    </div>
+
+    <div id="ai-msgs"></div>
+
+    <div class="ai-bar">
+        <div class="ai-field">
+            <textarea id="ai-input" rows="1" maxlength="2000" placeholder="Tulis pesan..."></textarea>
+            <button id="ai-send" onclick="sendAi()" aria-label="Kirim"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </div>
+</div>
+<script>
+(function () {
+    var API = 'https://quvpalomcsxkzqayrccf.supabase.co/functions/v1/quick-endpoint';
+    var MAX_KEEP = 40;
+    var busy = false;
+    var history = [];
+
+    function $(id) { return document.getElementById(id); }
+    function allowed() { var r = localStorage.getItem('role') || 'user'; return r === 'owner' || r === 'admin'; }
+    function histKey() { return 'ai_chat_v1:' + (localStorage.getItem('username') || 'guest'); }
+    function smoothOn() { return document.documentElement.classList.contains('perf-smooth'); }
+
+    function loadHist() {
+        try {
+            var a = JSON.parse(localStorage.getItem(histKey()));
+            if (Array.isArray(a)) {
+                return a.filter(function (m) {
+                    return m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string';
+                }).slice(-MAX_KEEP);
+            }
+        } catch (e) {}
+        return [];
+    }
+    function saveHist() {
+        try { localStorage.setItem(histKey(), JSON.stringify(history.slice(-MAX_KEEP))); } catch (e) {}
+    }
+    function toast(msg) {
+        var t = document.createElement('div');
+        t.className = 'bn-toast';
+        t.textContent = msg;
+        document.body.appendChild(t);
+        requestAnimationFrame(function () { t.classList.add('show'); });
+        setTimeout(function () {
+            t.classList.remove('show');
+            setTimeout(function () { t.remove(); }, 300);
+        }, 2200);
+    }
+    function scrollBottom() {
+        var el = $('ai-msgs');
+        el.scrollTo({ top: el.scrollHeight, behavior: smoothOn() ? 'auto' : 'smooth' });
+    }
+    function addMsg(cls, text) {
+        var d = document.createElement('div');
+        d.className = 'ai-msg ' + cls;
+        d.textContent = text;
+        $('ai-msgs').appendChild(d);
+        scrollBottom();
+        return d;
+    }
+    function renderAll() {
+        var box = $('ai-msgs');
+        box.innerHTML = '';
+        if (!history.length) {
+            box.innerHTML = '<div class="ai-empty"><i class="fa-solid fa-robot" style="font-size:28px;color:#c4b5fd"></i><p style="margin-top:10px">Tanya apa saja. Riwayat tersimpan di browser ini.</p></div>';
+            return;
+        }
+        history.forEach(function (m) {
+            var d = document.createElement('div');
+            d.className = 'ai-msg old ' + (m.role === 'user' ? 'me' : 'bot');
+            d.textContent = m.content;
+            box.appendChild(d);
+        });
+        box.scrollTop = box.scrollHeight;
+    }
+    function showTyping() {
+        var d = document.createElement('div');
+        d.id = 'ai-typing';
+        d.className = 'ai-msg bot ai-typing';
+        d.innerHTML = '<span class="ai-dot"></span><span class="ai-dot"></span><span class="ai-dot"></span>';
+        $('ai-msgs').appendChild(d);
+        scrollBottom();
+    }
+    function hideTyping() { var t = $('ai-typing'); if (t) t.remove(); }
+    function autoGrow() {
+        var t = $('ai-input');
+        t.style.height = 'auto';
+        t.style.height = Math.min(t.scrollHeight, 110) + 'px';
+    }
+    function syncMode() {
+        var s = smoothOn();
+        $('ai-mode-normal').classList.toggle('on', !s);
+        $('ai-mode-smooth').classList.toggle('on', s);
+    }
+    function refreshCard() {
+        var c = $('ai-card');
+        if (!c) return;
+        var ok = allowed();
+        c.style.opacity = ok ? '' : '.75';
+        $('ai-card-arrow').style.display = ok ? '' : 'none';
+        $('ai-card-lock').style.display = ok ? 'none' : '';
+    }
+
+    window.openAiPage = function () {
+        if (!allowed()) { toast('Fitur AI khusus Admin dan Owner.'); return; }
+        history = loadHist();
+        renderAll();
+        var p = $('ai-page');
+        p.classList.add('ai-show');
+        p.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        syncMode();
+    };
+    window.closeAiPage = function () {
+        var p = $('ai-page');
+        p.classList.remove('ai-show');
+        p.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+    window.clearAiChat = function () {
+        if (!history.length) return;
+        if (!confirm('Hapus semua riwayat obrolan AI?')) return;
+        history = [];
+        try { localStorage.removeItem(histKey()); } catch (e) {}
+        renderAll();
+    };
+
+    window.sendAi = async function () {
+        if (busy) return;
+        var input = $('ai-input');
+        var text = input.value.trim();
+        if (!text) return;
+
+        var tok = localStorage.getItem('token');
+        if (!tok) {
+            addMsg('bot err', 'Sesi belum lengkap. Logout lalu login ulang untuk memakai AI.');
+            return;
+        }
+
+        busy = true;
+        $('ai-send').disabled = true;
+        var empty = document.querySelector('#ai-msgs .ai-empty');
+        if (empty) empty.remove();
+
+        history.push({ role: 'user', content: text });
+        saveHist();
+        addMsg('me', text);
+        input.value = '';
+        autoGrow();
+        showTyping();
+
+        var msgs = history.slice(-20);
+        while (msgs.length && msgs[0].role !== 'user') msgs.shift();
+
+        try {
+            var res = await fetch(API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ action: 'ai_chat', token: tok, messages: msgs })
+            });
+            var data = await res.json().catch(function () { return {}; });
+            hideTyping();
+            if (!res.ok) throw new Error(data.error || 'Gagal menghubungi AI');
+            history.push({ role: 'assistant', content: data.reply });
+            saveHist();
+            addMsg('bot', data.reply);
+        } catch (err) {
+            hideTyping();
+            addMsg('bot err', err.message || 'Terjadi kesalahan');
+        } finally {
+            busy = false;
+            $('ai-send').disabled = false;
+            input.focus();
+        }
+    };
+
+    $('ai-input').addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); window.sendAi(); }
+    });
+    $('ai-input').addEventListener('input', autoGrow);
+
+    // Toggle Normal/Smooth ikut berubah kalau diatur dari menu Graphics
+    new MutationObserver(syncMode).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    syncMode();
+
+    // Kartu AI: gembok untuk user biasa
+    refreshCard();
+    var _lup = window.loadUserProfile;
+    if (typeof _lup === 'function') {
+        window.loadUserProfile = function () { _lup.apply(this, arguments); refreshCard(); };
+    }
+})();
+</script>
 </body>
 </html>
